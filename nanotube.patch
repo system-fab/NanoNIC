@@ -1,0 +1,1418 @@
+diff --git a/back_end/Intrinsics.cpp b/back_end/Intrinsics.cpp
+index 8fe8b1c..ac3db55 100644
+--- a/back_end/Intrinsics.cpp
++++ b/back_end/Intrinsics.cpp
+@@ -594,6 +594,7 @@ nanotube::get_enum_name(nanotube_channel_type_t t)
+     sp_name = "NANOTUBE_CHANNEL_TYPE_SIMPLE_PACKET",
+     sh_name = "NANOTUBE_CHANNEL_TYPE_SOFTHUB_PACKET",
+     x3rx_name = "NANOTUBE_CHANNEL_TYPE_X3RX_PACKET",
++    open_nic_name = "NANOTUBE_CHANNEL_TYPE_OPEN_NIC_PACKET",
+     null_name = "";
+ 
+   switch(t) {
+@@ -601,6 +602,7 @@ nanotube::get_enum_name(nanotube_channel_type_t t)
+   case NANOTUBE_CHANNEL_TYPE_SIMPLE_PACKET:  return sp_name;
+   case NANOTUBE_CHANNEL_TYPE_SOFTHUB_PACKET: return sh_name;
+   case NANOTUBE_CHANNEL_TYPE_X3RX_PACKET:    return x3rx_name;
++  case NANOTUBE_CHANNEL_TYPE_OPEN_NIC_PACKET: return open_nic_name;
+   default: return null_name;
+   }
+ }
+diff --git a/back_end/Pipeline.cpp b/back_end/Pipeline.cpp
+index 36314b0..105e091 100644
+--- a/back_end/Pipeline.cpp
++++ b/back_end/Pipeline.cpp
+@@ -3539,6 +3539,7 @@ void Pipeline::extend_nanotube_setup(const Pipeline::stages_t& stages,
+   switch( get_bus_type() ) {
+     case NANOTUBE_BUS_ID_SHB:  channel_type = NANOTUBE_CHANNEL_TYPE_SOFTHUB_PACKET; break;
+     case NANOTUBE_BUS_ID_X3RX: channel_type = NANOTUBE_CHANNEL_TYPE_X3RX_PACKET; break;
++    case NANOTUBE_BUS_ID_OPEN_NIC: channel_type = NANOTUBE_CHANNEL_TYPE_OPEN_NIC_PACKET; break;
+     default:                   channel_type = NANOTUBE_CHANNEL_TYPE_SIMPLE_PACKET;
+   }
+ 
+diff --git a/back_end/bus_type.cpp b/back_end/bus_type.cpp
+index d5a87d4..29ad338 100644
+--- a/back_end/bus_type.cpp
++++ b/back_end/bus_type.cpp
+@@ -16,6 +16,7 @@
+ #include "softhub_bus.hpp"
+ #include "utils.h"
+ #include "x3rx_bus.hpp"
++#include "open_nic_bus.hpp"
+ 
+ #include "llvm/Support/CommandLine.h"
+ 
+@@ -27,13 +28,14 @@ using namespace nanotube;
+ 
+ static llvm::cl::opt<std::string>
+ opt_bus("bus", llvm::cl::desc("Which bus format to use"),
+-        llvm::cl::init("sb"));
++        llvm::cl::init("open_nic"));
+ 
+ std::unordered_map<std::string, enum nanotube_bus_id_t> bus_types = {
+   // Recommended names.
+   { "sb", NANOTUBE_BUS_ID_SB },
+   { "shb", NANOTUBE_BUS_ID_SHB },
+   { "x3rx", NANOTUBE_BUS_ID_X3RX },
++  { "open_nic", NANOTUBE_BUS_ID_OPEN_NIC },
+ };
+ 
+ ///////////////////////////////////////////////////////////////////////////
+@@ -56,6 +58,7 @@ const char* nanotube::get_bus_suffix(enum nanotube_bus_id_t type) {
+     "_shb",
+     "_eth",
+     "_x3rx",
++    "_open_nic",
+   };
+ 
+   /* Make sure that the array here matches what is defined in the enum in
+@@ -79,6 +82,7 @@ nanotube_tap_offset_t nanotube::get_bus_word_size() {
+     sizeof(softhub_bus::word),
+     0,
+     sizeof(x3rx_bus::word),
++    sizeof(open_nic::word),
+   };
+ 
+   auto type = get_bus_type();
+@@ -100,6 +104,7 @@ nanotube_packet_size_t nanotube::get_bus_md_size()
+     sizeof(softhub_bus::header),
+     0,
+     sizeof(x3rx_bus::header),
++    sizeof(open_nic::header),
+   };
+ 
+   auto type = get_bus_type();
+@@ -121,6 +126,7 @@ nanotube_packet_size_t nanotube::get_bus_sb_size()
+     softhub_bus::sideband_bytes,
+     0,
+     x3rx_bus::sideband_bytes,
++    open_nic::sideband_bytes,
+   };
+ 
+   auto type = get_bus_type();
+@@ -142,6 +148,7 @@ nanotube_packet_size_t nanotube::get_bus_sb_signals_size()
+     softhub_bus::sideband_signals_bytes,
+     0,
+     x3rx_bus::sideband_signals_bytes,
++    open_nic::sideband_signals_bytes,
+   };
+ 
+   auto type = get_bus_type();
+diff --git a/back_end/print_setup.cpp b/back_end/print_setup.cpp
+index abf07d3..949a67b 100644
+--- a/back_end/print_setup.cpp
++++ b/back_end/print_setup.cpp
+@@ -60,6 +60,7 @@ static std::string to_string(nanotube_channel_type_t t)
+   case NANOTUBE_CHANNEL_TYPE_SIMPLE_PACKET: return "Simple packet";
+   case NANOTUBE_CHANNEL_TYPE_SOFTHUB_PACKET: return "Softhub packet";
+   case NANOTUBE_CHANNEL_TYPE_X3RX_PACKET: return "X3RX packet";
++  case NANOTUBE_CHANNEL_TYPE_OPEN_NIC_PACKET: return "Open NIC packet";
+   default: return "*Invalid*";
+   }
+ }
+diff --git a/include/bus_id.h b/include/bus_id.h
+index 0290b32..bdd8e68 100644
+--- a/include/bus_id.h
++++ b/include/bus_id.h
+@@ -19,6 +19,7 @@ enum nanotube_bus_id_t {
+   NANOTUBE_BUS_ID_SHB = 1,
+   NANOTUBE_BUS_ID_ETH = 2,
+   NANOTUBE_BUS_ID_X3RX = 3,
++  NANOTUBE_BUS_ID_OPEN_NIC = 4,
+   NANOTUBE_BUS_ID_TOTAL
+ };
+ 
+diff --git a/include/nanotube_api.h b/include/nanotube_api.h
+index 65c6012..82f1c47 100644
+--- a/include/nanotube_api.h
++++ b/include/nanotube_api.h
+@@ -96,6 +96,8 @@ typedef enum {
+   NANOTUBE_CHANNEL_TYPE_SOFTHUB_PACKET = 2,
+   /*! Indicates a X3RX packet interface */
+   NANOTUBE_CHANNEL_TYPE_X3RX_PACKET = 3,
++  /*! Indicates an Open NIC packet interface */
++  NANOTUBE_CHANNEL_TYPE_OPEN_NIC_PACKET = 4,
+ } nanotube_channel_type_t;
+ 
+ /* The following attributes control how the channel is represented by
+diff --git a/include/nanotube_packet_metadata_open_nic.h b/include/nanotube_packet_metadata_open_nic.h
+new file mode 100644
+index 0000000..287a986
+--- /dev/null
++++ b/include/nanotube_packet_metadata_open_nic.h
+@@ -0,0 +1,18 @@
++/**************************************************************************\
++*//*! \file nanotube_packet_metadata_open_nic.h
++** \author  Simone Mannarino 
++**  \brief  Nanotube open-nic bus metadata.
++**   \date  
++*//*
++\**************************************************************************/
++
++#ifndef NANOTUBE_PACKET_METADATA_OPEN_NIC_H
++#define NANOTUBE_PACKET_METADATA_OPEN_NIC_H
++
++#include "nanotube_api.h"
++
++extern "C" void
++nanotube_packet_set_port_open_nic(nanotube_packet_t* packet,
++                            nanotube_packet_port_t port);
++
++#endif // NANOTUBE_PACKET_METADATA_OPEN_NIC_H
+\ No newline at end of file
+diff --git a/include/nanotube_packet_taps_open_nic.h b/include/nanotube_packet_taps_open_nic.h
+new file mode 100644
+index 0000000..589db7d
+--- /dev/null
++++ b/include/nanotube_packet_taps_open_nic.h
+@@ -0,0 +1,185 @@
++ /**************************************************************************\
++*//*! \file nanotube_packet_taps_open_nic.h
++** \author  Simone Mannarino
++**  \brief  Open-nic interface for Nanotube packet taps.
++**   \date  
++*//*
++\**************************************************************************/
++
++#ifndef NANOTUBE_PACKET_TAPS_OPEN_NIC_H
++#define NANOTUBE_PACKET_TAPS_OPEN_NIC_H
++
++#include "open_nic_bus.hpp"
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++///////////////////////////////////////////////////////////////////////////
++
++/*! The open_nic bus wrapper of the length tap.
++**/
++void nanotube_tap_packet_length_open_nic(
++  /* Outputs. */
++  struct nanotube_tap_packet_length_resp *resp_out,
++
++  /* State. */
++  struct nanotube_tap_packet_length_state *state_inout,
++
++  /* Inputs. */
++  const void *packet_word_in,
++  const struct nanotube_tap_packet_length_req *req_in);
++
++
++///////////////////////////////////////////////////////////////////////////
++
++/*! The open_nic bus wrapper of the read tap.
++**/
++void nanotube_tap_packet_read_open_nic(
++  /* Constant parameters */
++  uint16_t result_buffer_length,
++  uint8_t result_buffer_index_bits,
++
++  /* Outputs. */
++  struct nanotube_tap_packet_read_resp *resp_out,
++  uint8_t *result_buffer_inout,
++
++  /* State. */
++  struct nanotube_tap_packet_read_state *state_inout,
++
++  /* Inputs. */
++  const void *packet_word_in,
++  const struct nanotube_tap_packet_read_req *req_in);
++
++
++///////////////////////////////////////////////////////////////////////////
++
++/*! The open_nic bus wrapper of the write tap.
++**/
++void nanotube_tap_packet_write_open_nic(
++  /* Constant parameters */
++  uint16_t request_buffer_length,
++  uint8_t request_buffer_index_bits,
++
++  /* Outputs. */
++  void *packet_word_out,
++
++  /* State. */
++  struct nanotube_tap_packet_write_state *state_inout,
++
++  /* Inputs. */
++  const void *packet_word_in,
++  const struct nanotube_tap_packet_write_req *req_in,
++  const uint8_t *request_bytes_in,
++  const uint8_t *request_mask_in);
++
++
++///////////////////////////////////////////////////////////////////////////
++
++/*! The open_nic bus wrapper of the resize tap ingress stage.
++**
++** \param packet_done_out A pointer to an output flag which will be
++** set when the end of the packet has been processed.  When set, the
++** next call should use the next request.
++**
++** \param cword_out A pointer to an output buffer which is written
++** with the control word for this packet word.  The control word and
++** packet word must be presented together to the egress stage.
++**
++** \param packet_length_out A pointer to a value that is set to the new
++** length of the packet (after the resize operation completes).
++**
++** \param state The ingress stage state which is used to track
++** progress through the packet.
++**
++** \param resize_req_in A pointer to an input buffer which contains
++** the resize request for this packet.
++**
++** \param packet_word_in A pointer to an input buffer which contains
++** the packet word.
++**/
++void nanotube_tap_packet_resize_ingress_open_nic(
++  /* Outputs. */
++  bool *packet_done_out,
++  nanotube_tap_packet_resize_cword_t *cword_out,
++  nanotube_tap_offset_t *packe_length_out,
++
++  /* State. */
++  nanotube_tap_packet_resize_ingress_state_t *state,
++
++  /* Inputs. */
++  nanotube_tap_packet_resize_req_t *resize_req_in,
++  void *packet_word_in);
++
++
++///////////////////////////////////////////////////////////////////////////
++
++/*! The open_nic bus wrapper of the resize tap ingress stage.
++**
++** \param input_done_out A pointer to an output flag which will be set
++**  when the packet word has been processed.  When set, the next call
++**  should use the next packet word and control word.
++**
++** \param packet_done_out A pointer to an output flag which will be set if the
++**  tap is done processing the entire packet and ready to receive the next full
++**  packet.
++**
++** \param word_valid_out A pointer to an output flag which will be set
++**  if the stage has produced an output packet word.
++**
++** \param packet_word_out A pointer to an output buffer which will
++** contain the output packet word.  This word is only valid if
++** word_valid_out is set.
++**
++** \param state A pointer to the state buffer for the egress stage.
++** This buffer is used to track progress through the packet.
++**
++** \param cword A pointer to an input buffer which contains the
++** control word from the ingress stage.
++**
++** \param packet_word_in A pointer to an input bufer which contains
++** the input packet word.
++**
++** \param new_packet_len The new packet length, as supplied by the
++** ingress resize tap (currently only used by softhub bus)
++*/
++void nanotube_tap_packet_resize_egress_open_nic(
++  /* Outputs. */
++  bool *input_done_out,
++  bool *packet_done_out,
++  bool *packet_valid_out,
++  void *packet_word_out,
++
++  /* State. */
++  nanotube_tap_packet_resize_egress_state_t *state,
++  void *state_packet_word,
++
++  /* Inputs. */
++  nanotube_tap_packet_resize_cword_t *cword,
++  void *packet_word_in,
++  nanotube_tap_offset_t new_packet_len);
++
++
++///////////////////////////////////////////////////////////////////////////
++
++/*! Check whether a softhub bus packet word denotes the end of packet.
++**
++** This is a specialisation of the generic nanotube_tap_packet_is_eop function
++** for softhub bus packet words.
++**
++** \param packet_word_in  The input packet word.
++** \param state_inout Static storage for the tap
++** \return True if this packet word is the last one of the packet.
++**/
++bool nanotube_tap_packet_is_eop_open_nic(
++  const void *packet_word_in,
++  struct nanotube_tap_packet_eop_state *state_inout
++);
++
++///////////////////////////////////////////////////////////////////////////
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif // NANOTUBE_PACKET_TAPS_OPEN_NIC_H
+\ No newline at end of file
+diff --git a/include/open_nic_bus.hpp b/include/open_nic_bus.hpp
+new file mode 100644
+index 0000000..cc4d1ba
+--- /dev/null
++++ b/include/open_nic_bus.hpp
+@@ -0,0 +1,247 @@
++/**************************************************************************\
++*//*! \file open_nic_bus.hpp
++** \author  Simone Mannarino 
++**  \brief  Open_nic 250 MHz bus support.
++**   \date  
++*//*
++\**************************************************************************/
++
++#ifndef OPEN_NIC_BUS_HPP
++#define OPEN_NIC_BUS_HPP
++
++#include <cassert>
++#include <cstring>
++#include <iomanip>
++#include <iostream>
++
++namespace open_nic
++{
++  typedef unsigned char byte_t;
++
++  /* OPEN_NIC_DATA AXI-S is 512 bits, so 64 bytes */
++  static const int log_data_bytes = 6;
++  static const int data_bytes = (1<<log_data_bytes);
++  /* OPEN_NIC uses 64 bits for TUSER, so 8 bytes */
++  static const int sideband_bytes = 8;
++  // Tkeep is 64 bits, so 8 bytes
++  // Tstrb is 64 bits, so 8 bytes
++  // Tlast is 1 bit, so 1 byte
++  static const int sideband_signals_bytes = 17;
++  static const int total_bytes = data_bytes+sideband_bytes+sideband_signals_bytes;
++
++  static inline unsigned data_offset(unsigned index) { return 0+index; }
++  static inline unsigned sideband_offset(unsigned index) { return data_bytes+index; }
++  static inline unsigned sideband_signals_offset(unsigned index) { return data_bytes+sideband_bytes+index; }
++
++  struct header {
++    /* Track the destination port */
++    byte_t port;
++  };
++
++  /* Metadata format is as follows:
++   * TUSER 64 bits
++   * [0 - 15] TUSER_SIZE - size of the packet
++   * [16 - 31] TUSER_SRC - source of the packet
++   * [32 - 47] TUSER_DST - destination of the packet
++   * [48 - 63] TUSER_USER - side-band user data
++   */
++
++  static const unsigned TUSER_SIZE_BYTE_INDEX = 0;
++  static const unsigned TUSER_SIZE_BIT_MASK = 0xFFFF;
++  static const unsigned TUSER_SRC_BYTE_INDEX = 2;
++  static const unsigned TUSER_SRC_BIT_MASK = 0xFFFF;
++  static const unsigned TUSER_DST_BYTE_INDEX = 4;
++  static const unsigned TUSER_DST_BIT_MASK = 0xFFFF;
++  static const unsigned TUSER_USER_BYTE_INDEX = 6;
++  static const unsigned TUSER_USER_BIT_MASK = 0xFFFF;
++
++  static const unsigned TKEEP_BYTE_INDEX = 0;
++  static const unsigned TKEEP_BIT_MASK = 0xFFFF;
++  static const unsigned TLAST_BYTE_INDEX = sideband_signals_bytes-1;
++  static const unsigned TLAST_BIT_MASK = 0x1;
++
++// Get functions
++
++  static inline unsigned short int get_sideband_tuser_size(const byte_t *sideband) {
++    return *((unsigned short int*)&sideband[TUSER_SIZE_BYTE_INDEX]) & TUSER_SIZE_BIT_MASK;
++  }
++
++  static inline unsigned short int get_sideband_tuser_src(const byte_t *sideband) {
++    return *((unsigned short int*)&sideband[TUSER_SRC_BYTE_INDEX]) & TUSER_SRC_BIT_MASK;
++  }
++
++  static inline unsigned short int get_sideband_tuser_dst(const byte_t *sideband) {
++    return *((unsigned short int*)&sideband[TUSER_DST_BYTE_INDEX]) & TUSER_DST_BIT_MASK;
++  }
++
++  static inline unsigned short int get_sideband_tuser_user(const byte_t *sideband) {
++    return *((unsigned short int*)&sideband[TUSER_USER_BYTE_INDEX]) & TUSER_USER_BIT_MASK;
++  }
++
++  static inline unsigned short int get_sideband_signal_tkeep(const byte_t *sideband_signal) {
++    return *((unsigned short int*)&sideband_signal[TKEEP_BYTE_INDEX]) & TKEEP_BIT_MASK;
++  }
++
++  static inline unsigned short int get_sideband_signal_tlast(const byte_t *sideband_signal) {
++    return *((unsigned short int*)&sideband_signal[TLAST_BYTE_INDEX]) & TLAST_BIT_MASK;
++  }
++
++// Set functions
++
++  static inline void set_tuser_size(byte_t *sideband, unsigned short int tuser_size) {
++    *((unsigned short int*)&sideband[TUSER_SIZE_BYTE_INDEX]) = tuser_size & TUSER_SIZE_BIT_MASK;
++  }
++
++  static inline void set_tuser_src(byte_t *sideband, unsigned short int tuser_src) {
++    *((unsigned short int*)&sideband[TUSER_SRC_BYTE_INDEX]) = tuser_src & TUSER_SRC_BIT_MASK;
++  }
++
++  static inline void set_tuser_dst(byte_t *sideband, unsigned short int tuser_dst) {
++    *((unsigned short int*)&sideband[TUSER_DST_BYTE_INDEX]) = tuser_dst & TUSER_DST_BIT_MASK;
++  }
++
++  static inline void set_tuser_user(byte_t *sideband, unsigned short int tuser_user) {
++    *((unsigned short int*)&sideband[TUSER_USER_BYTE_INDEX]) = tuser_user & TUSER_USER_BIT_MASK;
++  }
++
++// Set raw function
++
++  static inline void set_tuser_raw(byte_t *sideband, 
++                                 unsigned short int tuser_size, 
++                                 unsigned short int tuser_src, 
++                                 unsigned short int tuser_dst, 
++                                 unsigned short int tuser_user) {
++    // Clear sideband to avoid any data carry-over
++    memset(sideband, 0, sideband_bytes);
++    
++    // Set each part with its corresponding mask and index
++    set_tuser_size(sideband, tuser_size);
++    set_tuser_src(sideband, tuser_src);
++    set_tuser_dst(sideband, tuser_dst);
++    set_tuser_user(sideband, tuser_user);
++  }
++
++  /* Define the structure for a word of 512 bits (64 bytes), sideband data, tkeep and tlast signals */
++  struct word {
++    byte_t bytes[total_bytes];
++
++    /* Data manipulation methods */
++    byte_t &data_ref(unsigned index = 0) {
++        return bytes[data_offset(index)];
++    }
++    const byte_t &data_ref(unsigned index = 0) const {
++        return bytes[data_offset(index)];
++    }
++    byte_t *data_ptr(unsigned index = 0) {
++        return &(bytes[data_offset(index)]);
++    }
++    const byte_t *data_ptr(unsigned index = 0) const {
++        return &(bytes[data_offset(index)]);
++    }
++
++    // Accessor functions
++    int get_tuser_size() const {
++        return open_nic::get_sideband_tuser_size(bytes + sideband_offset(0));
++    }
++
++    int get_tuser_src() const {
++        return open_nic::get_sideband_tuser_src(bytes + sideband_offset(2));
++    }
++
++    int get_tuser_dst() const {
++        return open_nic::get_sideband_tuser_dst(bytes + sideband_offset(4));
++    }
++
++    int get_tuser_user() const {
++        return open_nic::get_sideband_tuser_user(bytes + sideband_offset(6));
++    }
++
++    //Mutator functions
++    void set_tuser_size(unsigned short int size) {
++        open_nic::set_tuser_size(bytes + sideband_offset(0), size);
++    }
++
++    void set_tuser_src(unsigned short int src) {
++        open_nic::set_tuser_src(bytes + sideband_offset(2), src);
++    }
++
++    void set_tuser_dst(unsigned short int dst) {
++        open_nic::set_tuser_dst(bytes + sideband_offset(4), dst);
++    }
++
++    void set_tuser_user(unsigned short int user) {
++        open_nic::set_tuser_user(bytes + sideband_offset(6), user);
++     }
++
++
++    byte_t &tuser() {
++      return bytes[sideband_offset(0)];
++    }
++    byte_t &tkeep() {
++      return bytes[sideband_offset(0)+sideband_bytes];
++    }
++    byte_t &tlast() {
++      return bytes[total_bytes-1];
++    }
++
++    uint64_t get_tkeep() const {
++        uint64_t keep;
++        memcpy(&keep, bytes + sideband_offset(0) + sideband_bytes, sizeof(keep));
++        return keep;
++    }
++
++    // Accessor for tlast
++    bool get_tlast() const {
++        return bytes[total_bytes - 1] != 0; // Assuming last byte is treated as a boolean
++    }
++
++    /* Sets first N bits of TKEEP to 1, the rest to 0 */
++    void set_tkeep(int N) {
++        // Create a mask for the first N bits set to 1
++        uint64_t mask = (1ull << N) - 1; // Create a mask for the first N bits
++
++        // Write the mask to the appropriate location in TKEEP
++        memcpy(&tkeep(), &mask, sizeof(mask)); // Copy the mask (8 bytes) into tkeep
++    }
++
++    void set_tlast(bool last) {
++      tlast() = last;
++    }
++  };
++
++  static inline std::ostream &operator <<(std::ostream &o, const word &w)
++  {
++    const int width = 16;
++
++    int num_bytes = ( data_bytes );
++    assert (num_bytes >= 0 && num_bytes <= data_bytes);
++
++    int col = 0;
++    for (int i=0; i<num_bytes; i++) {
++      if (col >= width) {
++        col = 0;
++      }
++
++      if (col == 0) {
++        o << (i==0 ? "" : "\n")
++          << std::hex << std::setw(4) << std::setfill('0')
++          << i
++          << std::dec << std::setw(0) << std::setfill(' ')
++          << ":";
++      }
++
++      o << ((col>0 && col%4==0) ? " : " : " ")
++        << std::hex << std::setw(2) << std::setfill('0')
++        << unsigned(w.data_ref(i))
++        << std::dec << std::setw(0) << std::setfill(' ');
++
++      col++;
++    }
++
++    o << "\n\n";
++
++    return o;
++  }
++};
++
++#endif // OPEN_NIC_BUS_HPP
+\ No newline at end of file
+diff --git a/include/packet_kernel.hpp b/include/packet_kernel.hpp
+index 01ebd16..2f06d40 100644
+--- a/include/packet_kernel.hpp
++++ b/include/packet_kernel.hpp
+@@ -138,6 +138,7 @@ private:
+   void write_simple_packet(nanotube_packet_t *packet);
+   void write_softhub_packet(nanotube_packet_t *packet);
+   void write_x3rx_packet(nanotube_packet_t *packet);
++  void write_open_nic_packet(nanotube_packet_t *packet);
+ 
+   // Write a word to m_packets_in.
+   void write_word(const uint8_t *data, size_t data_size);
+@@ -147,6 +148,7 @@ private:
+   bool try_read_simple_word();
+   bool try_read_softhub_word();
+   bool try_read_x3rx_word();
++  bool try_read_open_nic_word();
+ 
+   nanotube_channel &m_packet_write_channel;
+   nanotube_channel &m_packet_read_channel;
+diff --git a/libnt/SConscript b/libnt/SConscript
+index 409b333..5eb6bd5 100644
+--- a/libnt/SConscript
++++ b/libnt/SConscript
+@@ -24,6 +24,7 @@ high_level_sources = (
+     'nanotube_packet_metadata_sb.cpp',
+     'nanotube_packet_metadata_shb.cpp',
+     'nanotube_packet_metadata_x3rx.cpp',
++    'nanotube_packet_metadata_open_nic.cpp',
+ )
+ low_level_sources = (
+     'nanotube_map_taps.cpp',
+@@ -31,6 +32,7 @@ low_level_sources = (
+     'nanotube_packet_taps_sb.cpp',
+     'nanotube_packet_taps_shb.cpp',
+     'nanotube_packet_taps_x3rx.cpp',
++    'nanotube_packet_taps_open_nic.cpp',
+     'nanotube_packet_taps_bus.cpp',
+ )
+ lib_sources = high_level_sources + low_level_sources + (
+diff --git a/libnt/nanotube_packet.cpp b/libnt/nanotube_packet.cpp
+index 1771886..c10b63e 100644
+--- a/libnt/nanotube_packet.cpp
++++ b/libnt/nanotube_packet.cpp
+@@ -24,6 +24,7 @@
+ #include "simple_bus.hpp"
+ #include "softhub_bus.hpp"
+ #include "x3rx_bus.hpp"
++#include "open_nic_bus.hpp"
+ 
+ uint8_t* nanotube_packet_data(nanotube_packet_t* packet) {
+   auto sec = ( packet->get_is_capsule()
+@@ -197,6 +198,7 @@ int nanotube_packet::convert_bus_type(enum nanotube_bus_id_t bus_type)
+   case NANOTUBE_BUS_ID_SB:
+   case NANOTUBE_BUS_ID_SHB:
+   case NANOTUBE_BUS_ID_X3RX:
++  case NANOTUBE_BUS_ID_OPEN_NIC:
+     break;
+ 
+   default:
+@@ -245,6 +247,18 @@ int nanotube_packet::convert_bus_type(enum nanotube_bus_id_t bus_type)
+     break;
+   }
+ 
++  case NANOTUBE_BUS_ID_OPEN_NIC: {
++    // Extract the header fields.
++    open_nic::header open_nic_header = {0};
++    read(NANOTUBE_SECTION_WHOLE, (uint8_t*)&open_nic_header,
++         0, sizeof(open_nic_header));
++    m_port = open_nic_header.port;
++
++    // Remove the header.
++    resize(NANOTUBE_SECTION_WHOLE, 0, -(ptrdiff_t)sizeof(open_nic_header));
++    break;
++  }
++
+   default:
+     // Format not supported.
+     return EPROTONOSUPPORT;
+@@ -284,6 +298,15 @@ int nanotube_packet::convert_bus_type(enum nanotube_bus_id_t bus_type)
+     break;
+   }
+ 
++  case NANOTUBE_BUS_ID_OPEN_NIC: {
++    // Insert the header at the front of the packet.
++    open_nic::header open_nic_header = {0};
++    open_nic_header.port = this->m_port;
++    insert(NANOTUBE_SECTION_WHOLE, (uint8_t*)&open_nic_header,
++           0, sizeof(open_nic_header));
++    break;
++  }
++
+   default:
+     assert(false);
+   }
+@@ -406,6 +429,7 @@ void nanotube_packet::resize(nanotube_packet_section_t sec,
+     case NANOTUBE_BUS_ID_SB:
+     case NANOTUBE_BUS_ID_SHB:
+     case NANOTUBE_BUS_ID_X3RX:
++    case NANOTUBE_BUS_ID_OPEN_NIC:
+       // None.
+       break;
+ 
+@@ -438,6 +462,11 @@ void nanotube_packet::resize(nanotube_packet_section_t sec,
+       assert(m_contents.size() >= sizeof(x3rx_bus::header));
+       offset += sizeof(x3rx_bus::header);
+       break;
++      
++    case NANOTUBE_BUS_ID_OPEN_NIC:
++      assert(m_contents.size() >= sizeof(open_nic::header));
++      offset += sizeof(open_nic::header);
++      break;
+ 
+     default:
+       std::cerr << "ERROR: Unsupported bus type " << m_bus_type
+@@ -455,6 +484,7 @@ void nanotube_packet::resize(nanotube_packet_section_t sec,
+     case NANOTUBE_BUS_ID_SB:
+     case NANOTUBE_BUS_ID_SHB:
+     case NANOTUBE_BUS_ID_X3RX:
++    case NANOTUBE_BUS_ID_OPEN_NIC:
+       // Not supported yet.
+     default:
+       std::cerr << "ERROR: Unsupported bus type " << m_bus_type
+@@ -507,6 +537,12 @@ nanotube_packet_port_t nanotube_packet::get_port() const
+     return hdr->port;
+   }
+ 
++  case NANOTUBE_BUS_ID_OPEN_NIC: {
++    assert(m_contents.size() >= sizeof(open_nic::header));
++    auto *hdr = (open_nic::header*)&(m_contents.front());
++    return hdr->port;
++  }
++
+   default:
+     std::cerr << "ERROR: Unsupported bus type " << m_bus_type
+               << " for get_port, aborting!\n";
+@@ -541,6 +577,13 @@ void nanotube_packet::set_port(nanotube_packet_port_t port)
+     break;
+   }
+ 
++  case NANOTUBE_BUS_ID_OPEN_NIC: {
++    assert(m_contents.size() >= sizeof(open_nic::header));
++    auto *hdr = (open_nic::header*)&(m_contents.front());
++    hdr->port = port;
++    break;
++  }
++
+   default:
+     std::cerr << "ERROR: Unsupported bus type " << m_bus_type
+               << " for set_port, aborting!\n";
+@@ -767,6 +810,35 @@ nanotube_packet::add_bus_word(uint8_t *buffer, std::size_t buf_size)
+       return true;
+     }
+   }
++
++  case NANOTUBE_BUS_ID_OPEN_NIC: {
++    assert(buf_size == open_nic::total_bytes);
++
++    // Get pointers to the data, sideband, and sideband signals.
++    open_nic::byte_t *data = buffer + open_nic::data_offset(0);
++    open_nic::byte_t *sideband_signals = buffer + open_nic::sideband_signals_offset(0);
++
++    size_t num_bytes = open_nic::data_bytes;
++
++    // Extract TKEEP and calculate the number of valid bytes.
++    unsigned long long tkeep = open_nic::get_sideband_signal_tkeep(sideband_signals);
++    size_t valid_bytes = __builtin_popcountll(tkeep);
++
++    // Check if TLAST is asserted.
++    bool tlast = open_nic::get_sideband_signal_tlast(sideband_signals);
++
++    // If TLAST is not set, append the whole word.
++    if (!tlast) {
++        m_contents.insert(m_contents.end(), data, data + num_bytes);
++        // Indicate that there are more words to come.
++        return true;
++    }
++    // If TLAST is set, append only the valid bytes and mark the end of the packet.
++    else {
++        m_contents.insert(m_contents.end(), data, data + valid_bytes);
++        return false; // End of the packet.
++    }
++  }
+   }
+ }
+ 
+@@ -789,6 +861,10 @@ std::size_t nanotube_packet::get_meta_size() const
+     assert(m_contents.size() >= sizeof(x3rx_bus::header));
+     return sizeof(x3rx_bus::header);
+ 
++  case NANOTUBE_BUS_ID_OPEN_NIC:
++    assert(m_contents.size() >= sizeof(open_nic::header));
++    return sizeof(open_nic::header);
++
+   default:
+     std::cerr << "ERROR: Unsupported bus type " << m_bus_type
+               << ", aborting!\n";
+diff --git a/libnt/nanotube_packet_metadata_open_nic.cpp b/libnt/nanotube_packet_metadata_open_nic.cpp
+new file mode 100644
+index 0000000..af2e697
+--- /dev/null
++++ b/libnt/nanotube_packet_metadata_open_nic.cpp
+@@ -0,0 +1,26 @@
++/**************************************************************************\
++*//*! \file nanotube_packet_metadata_open_nic.cpp
++** \author  Simone Mannarino 
++**  \brief  Nanotube open-nic bus metadata.
++**   \date  
++*//*
++\**************************************************************************/
++
++#include "nanotube_packet_metadata_open_nic.h"
++#include "open_nic_bus.hpp"
++
++#include <cstddef>
++#ifdef __clang__
++__attribute__((always_inline))
++#endif
++void
++nanotube_packet_set_port_open_nic(nanotube_packet_t* packet,
++                                  nanotube_packet_port_t port)
++{
++  static_assert(sizeof(open_nic::header::port) == 1,
++                "port field size is incorrect");
++  uint8_t buffer[1] = {port};
++  static const uint8_t mask[1] = { 0xff };
++  unsigned offset = offsetof(open_nic::header, port);
++  nanotube_packet_write_masked(packet, buffer, mask, offset, 1);
++}
+diff --git a/libnt/nanotube_packet_taps_bus.cpp b/libnt/nanotube_packet_taps_bus.cpp
+index 82edd49..f025c98 100644
+--- a/libnt/nanotube_packet_taps_bus.cpp
++++ b/libnt/nanotube_packet_taps_bus.cpp
+@@ -15,6 +15,7 @@
+ #include "nanotube_packet_taps_sb.h"
+ #include "nanotube_packet_taps_shb.h"
+ #include "nanotube_packet_taps_x3rx.h"
++#include "nanotube_packet_taps_open_nic.h"
+ #include "nanotube_packet_taps_bus.h"
+ 
+ ///////////////////////////////////////////////////////////////////////////
+@@ -58,6 +59,12 @@ void nanotube_tap_packet_length_bus(
+                                               packet_word_in,
+                                               req_in);
+         break;
++      case NANOTUBE_BUS_ID_OPEN_NIC:
++        assert(packet_word_len == open_nic::total_bytes);
++        return nanotube_tap_packet_length_open_nic(resp_out, state_inout,
++                                              packet_word_in,
++                                              req_in);
++        break;
+       default:
+         assert(false);
+   }
+@@ -116,6 +123,14 @@ void nanotube_tap_packet_read_bus(
+                                             packet_word_in,
+                                             req_in);
+         break;
++      case NANOTUBE_BUS_ID_OPEN_NIC:
++        assert(packet_word_len == open_nic::total_bytes);
++        return nanotube_tap_packet_read_open_nic(result_buffer_length,
++                                            result_buffer_index_bits, resp_out,
++                                            result_buffer_inout, state_inout,
++                                            packet_word_in,
++                                            req_in);
++        break;
+       default:
+         assert(false);
+   }
+@@ -178,6 +193,15 @@ void nanotube_tap_packet_write_bus(
+                                              req_in, request_bytes_in,
+                                              request_mask_in);
+         break;
++      case NANOTUBE_BUS_ID_OPEN_NIC:
++        assert(packet_word_len == open_nic::total_bytes);
++        return nanotube_tap_packet_write_open_nic(request_buffer_length,
++                                             request_buffer_index_bits,
++                                             packet_word_out, state_inout,
++                                             packet_word_in,
++                                             req_in, request_bytes_in,
++                                             request_mask_in);
++        break;
+       default:
+         assert(false);
+   }
+@@ -236,6 +260,15 @@ void nanotube_tap_packet_resize_ingress_bus(
+                                                       resize_req_in,
+                                                       packet_word_in);
+         break;
++      case NANOTUBE_BUS_ID_OPEN_NIC:
++        assert(packet_word_len == open_nic::total_bytes);
++        return nanotube_tap_packet_resize_ingress_open_nic(packet_done_out,
++                                                      cword_out,
++                                                      packet_length_out,
++                                                      state,
++                                                      resize_req_in,
++                                                      packet_word_in);
++        break;
+       default:
+         assert(false);
+   }
+@@ -300,6 +333,16 @@ void nanotube_tap_packet_resize_egress_bus(
+                                                      cword, packet_word_in,
+                                                      new_packet_len);
+         break;
++      case NANOTUBE_BUS_ID_OPEN_NIC:
++        assert(packet_word_len == open_nic::total_bytes);
++        return nanotube_tap_packet_resize_egress_open_nic(input_done_out,
++                                                     packet_done_out,
++                                                     packet_valid_out,
++                                                     packet_word_out, state,
++                                                     state_packet_word,
++                                                     cword, packet_word_in,
++                                                     new_packet_len);
++        break;
+       default:
+         assert(false);
+   }
+diff --git a/libnt/nanotube_packet_taps_open_nic.cpp b/libnt/nanotube_packet_taps_open_nic.cpp
+new file mode 100644
+index 0000000..69372bc
+--- /dev/null
++++ b/libnt/nanotube_packet_taps_open_nic.cpp
+@@ -0,0 +1,350 @@
++ /**************************************************************************\
++*//*! \file nanotube_packet_taps_open_nic.h
++** \author  Simone Mannarino
++**  \brief  Open-nic interface for Nanotube packet taps.
++**   \date  
++*//*
++\**************************************************************************/
++
++#include "nanotube_packet_taps.h"
++#include "nanotube_packet_taps_open_nic.h"
++#include "nanotube_packet_taps_core.h"
++
++#include <cstring>
++
++///////////////////////////////////////////////////////////////////////////
++
++// Decode how many bytes in this word are valid packet data
++
++static inline
++uint16_t open_nic_valid_data_bytes(const open_nic::word* open_nic_word, uint8_t *data_eop_seen)
++#if __clang__
++    __attribute__((always_inline))
++#endif
++{
++    // Reset tracking of EOP when we see a new packet (SOP is not applicable in this context)
++    if (open_nic_word->get_tlast() == false) {
++        *data_eop_seen = 0; // Reset EOP tracking
++    }
++
++    // Check if this is the last valid beat of the data (EOP)
++    if (open_nic_word->get_tlast()) {
++        // Get the number of valid bytes from tuser_size
++        uint16_t valid_bytes = open_nic_word->get_tuser_size();
++
++        // Get the tkeep bitmask
++        uint64_t tkeep_mask = open_nic_word->get_tkeep();
++
++        // Count the valid bytes based on tkeep
++        uint16_t byte_count = 0;
++        for (int i = 0; i < 64; ++i) {
++            if (tkeep_mask & (1ULL << i)) {
++                byte_count++;
++            }
++        }
++
++        // Remember we've seen data EOP in case there are subsequent words with just metadata
++        *data_eop_seen = 1;
++
++        // Return the minimum of valid bytes and byte count based on tkeep
++        return (valid_bytes < byte_count) ? valid_bytes : byte_count;
++    } else if (*data_eop_seen) {
++        // No valid data bytes after EOP
++        return 0;
++    }
++
++    // Return the total expected bytes if no EOP has been encountered
++    return open_nic_word->get_tuser_size(); // Return the total size from tuser_size
++}
++
++///////////////////////////////////////////////////////////////////////////
++
++// OPEN_NIC bus wrapper for nanotube_tap_packet_length_core()
++
++void nanotube_tap_packet_length_open_nic(
++    /* Outputs. */
++    struct nanotube_tap_packet_length_resp *resp_out,
++
++    /* State. */
++    struct nanotube_tap_packet_length_state *state_inout,
++
++    /* Inputs. */
++    const void *packet_word_in,
++    const struct nanotube_tap_packet_length_req *req_in)
++#if __clang__
++    __attribute__((always_inline))
++#endif
++{
++    check_type(nanotube_tap_packet_length, _open_nic);
++
++    const auto* open_nic_w_in = (const open_nic::word*)packet_word_in;
++    uint16_t packet_word_length;
++
++    // Check if the packet's metadata indicates it's the end of the packet (EOP)
++    bool packet_word_eop = open_nic_w_in->get_tlast();
++
++    // Calculate the length of valid data bytes in the packet
++    packet_word_length = open_nic_valid_data_bytes(open_nic_w_in, &state_inout->data_eop_seen);
++
++    // Call core processing function with the computed packet length and EOP status
++    nanotube_tap_packet_length_core(
++        resp_out,
++        state_inout,
++        packet_word_eop,
++        packet_word_length,
++        req_in);
++}
++
++
++///////////////////////////////////////////////////////////////////////////
++
++// OPEN_NIC bus wrapper for nanotube_tap_packet_read_core()
++
++void nanotube_tap_packet_read_open_nic(
++    /* Constant parameters */
++    uint16_t result_buffer_length,
++    uint8_t result_buffer_index_bits,
++
++    /* Outputs. */
++    struct nanotube_tap_packet_read_resp *resp_out,
++    uint8_t *result_buffer_inout,
++
++    /* State. */
++    struct nanotube_tap_packet_read_state *state_inout,
++
++    /* Inputs. */
++    const void *packet_word_in,
++    const struct nanotube_tap_packet_read_req *req_in)
++#if __clang__
++    __attribute__((always_inline))
++#endif
++{
++    check_type(nanotube_tap_packet_read, _open_nic);
++
++    const uint8_t word_index_bits = 2;
++    static_assert(sizeof(open_nic::data_bytes) <= (1U << word_index_bits),
++                  "Word index width is too small.");
++    
++    const auto* open_nic_w_in = (const open_nic::word*)packet_word_in;
++    uint16_t packet_word_length;
++
++    // Check if the packet's metadata indicates it's the end of the packet (EOP)
++    bool packet_word_eop = open_nic_w_in->get_tlast();
++
++    // Calculate the length of valid data bytes in the packet
++    packet_word_length = open_nic_valid_data_bytes(open_nic_w_in, &state_inout->data_eop_seen);
++
++    // Call the core processing function with the computed packet length and EOP status
++    nanotube_tap_packet_read_core(
++        result_buffer_length, 
++        result_buffer_index_bits,
++        open_nic::data_bytes, 
++        word_index_bits,
++        resp_out, 
++        result_buffer_inout,
++        state_inout,
++        open_nic_w_in->data_ptr(0), // Pointer to the packet data
++        packet_word_eop, 
++        packet_word_length, 
++        req_in);
++}
++
++///////////////////////////////////////////////////////////////////////////
++
++// OPEN_NIC bus wrapper for nanotube_tap_packet_write_core()
++
++void nanotube_tap_packet_write_open_nic(
++    /* Constant parameters */
++    uint16_t request_buffer_length,
++    uint8_t request_buffer_index_bits,
++
++    /* Outputs. */
++    void *packet_word_out,
++
++    /* State. */
++    struct nanotube_tap_packet_write_state *state_inout,
++
++    /* Inputs. */
++    const void *packet_word_in,
++    const struct nanotube_tap_packet_write_req *req_in,
++    const uint8_t *request_bytes_in,
++    const uint8_t *request_mask_in)
++#if __clang__
++    __attribute__((always_inline))
++#endif
++{
++    check_type(nanotube_tap_packet_write, _open_nic);
++
++    const uint8_t word_index_bits = 2;
++    static_assert(sizeof(open_nic::data_bytes) <= (1U << word_index_bits),
++                  "Word index width is too small.");
++
++    const auto *open_nic_w_in = (const open_nic::word*)packet_word_in;
++    auto *open_nic_w_out = (open_nic::word*)packet_word_out;
++    uint16_t packet_word_length;
++
++    bool packet_word_eop = open_nic_w_in->get_tlast();
++
++    // Calculate the length of valid data bytes in the packet
++    packet_word_length = open_nic_valid_data_bytes(open_nic_w_in, &state_inout->data_eop_seen);
++
++    // Propagate any additional sideband bytes/signals
++    if (open_nic::total_bytes > open_nic::data_bytes) {
++        memcpy(open_nic_w_out->data_ptr(open_nic::data_bytes),
++               open_nic_w_in->data_ptr(open_nic::data_bytes),
++               open_nic::total_bytes - open_nic::data_bytes);
++    }
++
++    // Invoke the core of the tap.
++    nanotube_tap_packet_write_core(
++        /* Constant parameters */
++        request_buffer_length,
++        request_buffer_index_bits,
++        open_nic::data_bytes,
++        word_index_bits,
++
++        /* Outputs. */
++        open_nic_w_out->data_ptr(), // Pointer to the output data
++
++        /* State. */
++        state_inout,
++
++        /* Inputs. */
++        open_nic_w_in->data_ptr(), // Pointer to the input data
++        packet_word_eop,
++        packet_word_length,
++        req_in,
++        request_bytes_in,
++        request_mask_in);
++}
++
++
++
++///////////////////////////////////////////////////////////////////////////
++
++// OPEN_NIC bus wrapper for nanotube_tap_packet_resize_ingress_core()
++
++void nanotube_tap_packet_resize_ingress_open_nic(
++    /* Outputs. */
++    bool *packet_done_out,
++    nanotube_tap_packet_resize_cword_t *cword_out,
++    nanotube_tap_offset_t *packet_length_out,
++
++    /* State. */
++    nanotube_tap_packet_resize_ingress_state_t *state,
++
++    /* Inputs. */
++    nanotube_tap_packet_resize_req_t *resize_req_in,
++    void *packet_word_in)
++#if __clang__
++    __attribute__((always_inline))
++#endif
++{
++    check_type(nanotube_tap_packet_resize_ingress, _open_nic);
++
++    auto *open_nic_w_in = (open_nic::word*)packet_word_in; // Cast input to open_nic::word
++
++    uint16_t packet_word_length;
++
++    // Calculate the length of valid data bytes in the packet
++    packet_word_length = open_nic_valid_data_bytes(open_nic_w_in, &state->data_eop_seen);
++
++    bool packet_word_eop = open_nic_w_in->get_tlast();
++
++    nanotube_tap_packet_resize_ingress_core(
++        open_nic::data_bytes,
++        packet_done_out,
++        cword_out,
++        packet_length_out,
++        state,
++        resize_req_in,
++        packet_word_length,
++        packet_word_eop);
++}
++
++
++///////////////////////////////////////////////////////////////////////////
++
++// OPEN_NIC bus wrapper for nanotube_tap_packet_resize_egress_core()
++
++void nanotube_tap_packet_resize_egress_open_nic(
++    /* Outputs. */
++    bool *input_done_out,
++    bool *packet_done_out,
++    bool *word_valid_out,
++    void *packet_word_out,
++
++    /* State. */
++    nanotube_tap_packet_resize_egress_state_t *state,
++    void *state_packet_word,
++
++    /* Inputs. */
++    nanotube_tap_packet_resize_cword_t *cword,
++    void *packet_word_in,
++    nanotube_tap_offset_t new_packet_len)
++#if __clang__
++    __attribute__((always_inline))
++#endif
++{
++    check_type(nanotube_tap_packet_resize_egress, _open_nic);
++
++    auto *open_nic_w_in  = (open_nic::word*)packet_word_in; // Input packet
++    auto *open_nic_w_out = (open_nic::word*)packet_word_out; // Output packet
++
++    nanotube_tap_offset_t word_length_out;
++    bool word_eop_out;
++
++    // Determine the end of packet (EOP) status for input
++    bool input_eop = open_nic_w_in->get_tlast();
++
++    // Core processing for resizing egress packets
++    nanotube_tap_packet_resize_egress_core(
++        open_nic::data_bytes, open_nic::log_data_bytes,
++        input_done_out,
++        word_valid_out, &word_eop_out,
++        &word_length_out, open_nic_w_out->data_ptr(),
++        state, (uint8_t*)state_packet_word,
++        cword, open_nic_w_in->data_ptr());
++
++    // Determine if the packet is done based on input EOP
++    *packet_done_out = input_eop && *input_done_out;
++
++    // Set AXI4 signals for output
++    if (*word_valid_out && open_nic::sideband_signals_bytes) {
++        // Set tlast to indicate end of packet
++        open_nic_w_out->set_tlast(word_eop_out);
++
++        // Set tkeep based on the valid word length; 
++        // Ensure tkeep reflects valid bytes according to packet specifications
++        uint64_t tkeep_value = (word_length_out < open_nic::data_bytes) 
++                                ? ((1ULL << word_length_out) - 1) 
++                                : 0xFFFFFFFFFFFFFFFF; // All valid if length is max
++        open_nic_w_out->set_tkeep(tkeep_value);
++
++        // Handle tuser signals
++        open_nic_w_out->set_tuser_size( new_packet_len); // Set the packet size
++    }
++}
++
++///////////////////////////////////////////////////////////////////////////
++
++bool nanotube_tap_packet_is_eop_open_nic(
++    const void *packet_word_in,
++    struct nanotube_tap_packet_eop_state *state_inout
++)
++#if __clang__
++    __attribute__((always_inline))
++#endif
++{
++    check_type(nanotube_tap_packet_is_eop, _open_nic);
++
++    auto *pw = (open_nic::word*)packet_word_in;
++
++    // The end of packet (EOP) can be determined from tlast
++    // along with tvalid, ensuring it's the last valid word of the packet.
++    // According to the Open-NIC specification, tlast indicates
++    // if the current packet is finished.
++    return pw->get_tlast();
++}
++
++///////////////////////////////////////////////////////////////////////////
+diff --git a/libnt/packet_kernel.cpp b/libnt/packet_kernel.cpp
+index 1a5d6c9..1a36f88 100644
+--- a/libnt/packet_kernel.cpp
++++ b/libnt/packet_kernel.cpp
+@@ -21,6 +21,7 @@
+ #include "simple_bus.hpp"
+ #include "softhub_bus.hpp"
+ #include "x3rx_bus.hpp"
++#include "open_nic_bus.hpp"
+ 
+ #include <algorithm>
+ #include <cstring>
+@@ -139,10 +140,18 @@ channel_packet_kernel::channel_packet_kernel(
+     assert(packet_read_channel.get_elem_size() == x3rx_bus::total_bytes);
+     m_bus_type = NANOTUBE_BUS_ID_X3RX;
+     break;
++  case NANOTUBE_CHANNEL_TYPE_OPEN_NIC_PACKET:
++    assert(packet_read_channel.get_read_export_type() ==
++           NANOTUBE_CHANNEL_TYPE_OPEN_NIC_PACKET);
++    assert(packet_write_channel.get_elem_size() == open_nic::total_bytes);
++    assert(packet_read_channel.get_elem_size() == open_nic::total_bytes);
++    m_bus_type = NANOTUBE_BUS_ID_OPEN_NIC;
++    break;
+   default:
+     assert(write_export_type == NANOTUBE_CHANNEL_TYPE_SIMPLE_PACKET ||
+            write_export_type == NANOTUBE_CHANNEL_TYPE_SOFTHUB_PACKET ||
+-           write_export_type == NANOTUBE_CHANNEL_TYPE_X3RX_PACKET);
++           write_export_type == NANOTUBE_CHANNEL_TYPE_X3RX_PACKET ||
++           write_export_type == NANOTUBE_CHANNEL_TYPE_OPEN_NIC_PACKET);
+   }
+ 
+   m_read_packet.reset(m_bus_type, true);
+@@ -167,6 +176,10 @@ void channel_packet_kernel::process(nanotube_packet_t *packet)
+   case NANOTUBE_CHANNEL_TYPE_X3RX_PACKET:
+     write_x3rx_packet(packet);
+     break;
++
++  case NANOTUBE_CHANNEL_TYPE_OPEN_NIC_PACKET:
++    write_open_nic_packet(packet);
++    break;
+   }
+ }
+ 
+@@ -250,6 +263,27 @@ channel_packet_kernel::write_x3rx_packet(nanotube_packet_t *packet)
+   } 
+ }
+ 
++void
++channel_packet_kernel::write_open_nic_packet(nanotube_packet_t *packet)
++{
++  // Make sure the correct metadata is present.
++  packet->convert_bus_type(NANOTUBE_BUS_ID_OPEN_NIC);
++
++  open_nic::word w = {0};
++  size_t iter = 0;
++
++  assert(m_packet_write_channel.get_elem_size() == open_nic::total_bytes);
++
++  bool more = true;
++  while (more) {
++    // Get a word from the packet
++    more = packet->get_bus_word(w.bytes, open_nic::total_bytes, &iter);
++
++    // Write it to the channel
++    write_word(w.bytes, open_nic::total_bytes);
++  } 
++}
++
+ void
+ channel_packet_kernel::write_word(const uint8_t *data,
+                                   size_t data_size)
+@@ -285,10 +319,14 @@ bool channel_packet_kernel::try_read_word()
+   case NANOTUBE_CHANNEL_TYPE_X3RX_PACKET:
+     return try_read_x3rx_word();
+     break;
++  case NANOTUBE_CHANNEL_TYPE_OPEN_NIC_PACKET:
++    return try_read_open_nic_word();
++    break;
+   default:
+     assert(read_export_type == NANOTUBE_CHANNEL_TYPE_SIMPLE_PACKET ||
+            read_export_type == NANOTUBE_CHANNEL_TYPE_SOFTHUB_PACKET ||
+-           read_export_type == NANOTUBE_CHANNEL_TYPE_X3RX_PACKET);
++           read_export_type == NANOTUBE_CHANNEL_TYPE_X3RX_PACKET ||
++           read_export_type == NANOTUBE_CHANNEL_TYPE_OPEN_NIC_PACKET);
+   }
+   return false;
+ }
+@@ -377,6 +415,35 @@ bool channel_packet_kernel::try_read_x3rx_word()
+   return true;
+ }
+ 
++bool channel_packet_kernel::try_read_open_nic_word()
++{
++  open_nic::word word_read_buffer;
++
++  // Try to read a word from the channel.
++  bool success = m_packet_read_channel.try_read(
++    word_read_buffer.bytes, open_nic::total_bytes);
++  if (!success)
++    return false;
++
++  bool more = m_read_packet.add_bus_word(word_read_buffer.bytes,
++                                         open_nic::total_bytes);
++  if (more)
++    // Indicate that a word was read.
++    return true;
++
++  // Convert the packet to Ethernet.
++  m_read_packet.convert_bus_type(NANOTUBE_BUS_ID_ETH);
++
++  // Process the packet.
++  m_system.receive_packet(&m_read_packet, NANOTUBE_PACKET_PASS);
++
++  // Clear the buffer for the next packet.
++  m_read_packet.reset(m_bus_type);
++
++  // Indicate that a word was read.
++  return true;
++}
++
+ 
+ void channel_packet_kernel::flush()
+ {
+diff --git a/scripts/hls_build b/scripts/hls_build
+index 537d507..04df2f0 100755
+--- a/scripts/hls_build
++++ b/scripts/hls_build
+@@ -26,7 +26,7 @@ import tool_config
+ ###########################################################################
+ 
+ default_clock = (2.0, 0.5)
+-default_part = 'xcvu9p-flga2104-2-e'
++default_part = 'xcu250-figd2104-2L-e' # 'xcvu9p-flga2104-2-e'
+ 
+ ###########################################################################
+ 

@@ -1,0 +1,1349 @@
+diff --git a/plugin/p2p/box_250mhz/build_NK_block_design.tcl b/plugin/p2p/box_250mhz/build_NK_block_design.tcl
+new file mode 100644
+index 0000000..9b830d4
+--- /dev/null
++++ b/plugin/p2p/box_250mhz/build_NK_block_design.tcl
+@@ -0,0 +1,1142 @@
++
++################################################################
++# This is a generated script based on design: NK_open_nic
++#
++# Though there are limitations about the generated script,
++# the main purpose of this utility is to make learning
++# IP Integrator Tcl commands easier.
++################################################################
++
++namespace eval _tcl {
++proc get_script_folder {} {
++   set script_path [file normalize [info script]]
++   set script_folder [file dirname $script_path]
++   return $script_folder
++}
++}
++variable script_folder
++set script_folder [_tcl::get_script_folder]
++
++################################################################
++# Check if script is running in correct Vivado version.
++################################################################
++set scripts_vivado_version 2022.1
++set current_vivado_version [version -short]
++
++if { [string first $scripts_vivado_version $current_vivado_version] == -1 } {
++   puts ""
++   catch {common::send_gid_msg -ssname BD::TCL -id 2041 -severity "ERROR" "This script was generated using Vivado <$scripts_vivado_version> and is being run in <$current_vivado_version> of Vivado. Please run the script in Vivado <$scripts_vivado_version> then open the design in Vivado <$current_vivado_version>. Upgrade the design by running \"Tools => Report => Report IP Status...\", then run write_bd_tcl to create an updated script."}
++
++   return 1
++}
++
++################################################################
++# START
++################################################################
++
++# To test this script, run the following commands from Vivado Tcl console:
++# source NK_open_nic_script.tcl
++
++# If there is no project opened, this script will create a
++# project, but make sure you do not have an existing project
++# <./myproj/project_1.xpr> in the current working folder.
++
++set list_projs [get_projects -quiet]
++if { $list_projs eq "" } {
++   create_project project_1 myproj -part xcu250-figd2104-2L-e
++   set_property BOARD_PART xilinx.com:au250:part0:1.3 [current_project]
++}
++
++
++# CHANGE DESIGN NAME HERE
++variable design_name
++set design_name NK_open_nic
++
++# If you do not already have an existing IP Integrator design open,
++# you can create a design using the following command:
++#    create_bd_design $design_name
++
++# Creating design if needed
++set errMsg ""
++set nRet 0
++
++set cur_design [current_bd_design -quiet]
++set list_cells [get_bd_cells -quiet]
++
++if { ${design_name} eq "" } {
++   # USE CASES:
++   #    1) Design_name not set
++
++   set errMsg "Please set the variable <design_name> to a non-empty value."
++   set nRet 1
++
++} elseif { ${cur_design} ne "" && ${list_cells} eq "" } {
++   # USE CASES:
++   #    2): Current design opened AND is empty AND names same.
++   #    3): Current design opened AND is empty AND names diff; design_name NOT in project.
++   #    4): Current design opened AND is empty AND names diff; design_name exists in project.
++
++   if { $cur_design ne $design_name } {
++      common::send_gid_msg -ssname BD::TCL -id 2001 -severity "INFO" "Changing value of <design_name> from <$design_name> to <$cur_design> since current design is empty."
++      set design_name [get_property NAME $cur_design]
++   }
++   common::send_gid_msg -ssname BD::TCL -id 2002 -severity "INFO" "Constructing design in IPI design <$cur_design>..."
++
++} elseif { ${cur_design} ne "" && $list_cells ne "" && $cur_design eq $design_name } {
++   # USE CASES:
++   #    5) Current design opened AND has components AND same names.
++
++   set errMsg "Design <$design_name> already exists in your project, please set the variable <design_name> to another value."
++   set nRet 1
++} elseif { [get_files -quiet ${design_name}.bd] ne "" } {
++   # USE CASES: 
++   #    6) Current opened design, has components, but diff names, design_name exists in project.
++   #    7) No opened design, design_name exists in project.
++
++   set errMsg "Design <$design_name> already exists in your project, please set the variable <design_name> to another value."
++   set nRet 2
++
++} else {
++   # USE CASES:
++   #    8) No opened design, design_name not in project.
++   #    9) Current opened design, has components, but diff names, design_name not in project.
++
++   common::send_gid_msg -ssname BD::TCL -id 2003 -severity "INFO" "Currently there is no design <$design_name> in project, so creating one..."
++
++   create_bd_design $design_name
++
++   common::send_gid_msg -ssname BD::TCL -id 2004 -severity "INFO" "Making design <$design_name> as current_bd_design."
++   current_bd_design $design_name
++
++}
++
++common::send_gid_msg -ssname BD::TCL -id 2005 -severity "INFO" "Currently the variable <design_name> is equal to \"$design_name\"."
++
++if { $nRet != 0 } {
++   catch {common::send_gid_msg -ssname BD::TCL -id 2006 -severity "ERROR" $errMsg}
++   return $nRet
++}
++
++set bCheckIPsPassed 1
++##################################################################
++# CHECK IPs
++##################################################################
++set bCheckIPs 1
++if { $bCheckIPs == 1 } {
++   set list_check_ips "\ 
++Xilinx:stage_0:stage_0:1.0\
++Xilinx:stage_10:stage_10:1.0\
++Xilinx:stage_11:stage_11:1.0\
++Xilinx:stage_12:stage_12:1.0\
++Xilinx:stage_13:stage_13:1.0\
++Xilinx:stage_14:stage_14:1.0\
++Xilinx:stage_15:stage_15:1.0\
++Xilinx:stage_16:stage_16:1.0\
++Xilinx:stage_17:stage_17:1.0\
++Xilinx:stage_18:stage_18:1.0\
++Xilinx:stage_19:stage_19:1.0\
++Xilinx:stage_1:stage_1:1.0\
++Xilinx:stage_20:stage_20:1.0\
++Xilinx:stage_21:stage_21:1.0\
++Xilinx:stage_22:stage_22:1.0\
++Xilinx:stage_23:stage_23:1.0\
++Xilinx:stage_24:stage_24:1.0\
++Xilinx:stage_25:stage_25:1.0\
++Xilinx:stage_26:stage_26:1.0\
++Xilinx:stage_27:stage_27:1.0\
++Xilinx:stage_28:stage_28:1.0\
++Xilinx:stage_29:stage_29:1.0\
++Xilinx:stage_2:stage_2:1.0\
++Xilinx:stage_30:stage_30:1.0\
++Xilinx:stage_31:stage_31:1.0\
++Xilinx:stage_32:stage_32:1.0\
++Xilinx:stage_33:stage_33:1.0\
++Xilinx:stage_34:stage_34:1.0\
++Xilinx:stage_35:stage_35:1.0\
++Xilinx:stage_36:stage_36:1.0\
++Xilinx:stage_37:stage_37:1.0\
++Xilinx:stage_38:stage_38:1.0\
++Xilinx:stage_39:stage_39:1.0\
++Xilinx:stage_3:stage_3:1.0\
++Xilinx:stage_40:stage_40:1.0\
++Xilinx:stage_41:stage_41:1.0\
++Xilinx:stage_42:stage_42:1.0\
++Xilinx:stage_43:stage_43:1.0\
++Xilinx:stage_44:stage_44:1.0\
++Xilinx:stage_45:stage_45:1.0\
++Xilinx:stage_46:stage_46:1.0\
++Xilinx:stage_47:stage_47:1.0\
++Xilinx:stage_48:stage_48:1.0\
++Xilinx:stage_49:stage_49:1.0\
++Xilinx:stage_4:stage_4:1.0\
++Xilinx:stage_50:stage_50:1.0\
++Xilinx:stage_51:stage_51:1.0\
++Xilinx:stage_52:stage_52:1.0\
++Xilinx:stage_53:stage_53:1.0\
++Xilinx:stage_54:stage_54:1.0\
++Xilinx:stage_55:stage_55:1.0\
++Xilinx:stage_56:stage_56:1.0\
++Xilinx:stage_57:stage_57:1.0\
++Xilinx:stage_58:stage_58:1.0\
++Xilinx:stage_59:stage_59:1.0\
++Xilinx:stage_5:stage_5:1.0\
++Xilinx:stage_60:stage_60:1.0\
++Xilinx:stage_61:stage_61:1.0\
++Xilinx:stage_62:stage_62:1.0\
++Xilinx:stage_63:stage_63:1.0\
++Xilinx:stage_64:stage_64:1.0\
++Xilinx:stage_65:stage_65:1.0\
++Xilinx:stage_66:stage_66:1.0\
++Xilinx:stage_67:stage_67:1.0\
++Xilinx:stage_68:stage_68:1.0\
++Xilinx:stage_69:stage_69:1.0\
++Xilinx:stage_6:stage_6:1.0\
++Xilinx:stage_70:stage_70:1.0\
++Xilinx:stage_71:stage_71:1.0\
++Xilinx:stage_72:stage_72:1.0\
++Xilinx:stage_73:stage_73:1.0\
++Xilinx:stage_74:stage_74:1.0\
++Xilinx:stage_75:stage_75:1.0\
++Xilinx:stage_76:stage_76:1.0\
++Xilinx:stage_77:stage_77:1.0\
++Xilinx:stage_78:stage_78:1.0\
++Xilinx:stage_79:stage_79:1.0\
++Xilinx:stage_7:stage_7:1.0\
++Xilinx:stage_8:stage_8:1.0\
++Xilinx:stage_9:stage_9:1.0\
++"
++
++   set list_ips_missing ""
++   common::send_gid_msg -ssname BD::TCL -id 2011 -severity "INFO" "Checking if the following IPs exist in the project's IP catalog: $list_check_ips ."
++
++   foreach ip_vlnv $list_check_ips {
++      set ip_obj [get_ipdefs -all $ip_vlnv]
++      if { $ip_obj eq "" } {
++         lappend list_ips_missing $ip_vlnv
++      }
++   }
++
++   if { $list_ips_missing ne "" } {
++      catch {common::send_gid_msg -ssname BD::TCL -id 2012 -severity "ERROR" "The following IPs are not found in the IP Catalog:\n  $list_ips_missing\n\nResolution: Please add the repository containing the IP(s) to the project." }
++      set bCheckIPsPassed 0
++   }
++
++}
++
++if { $bCheckIPsPassed != 1 } {
++  common::send_gid_msg -ssname BD::TCL -id 2023 -severity "WARNING" "Will not continue with creation of design due to the error(s) above."
++  return 3
++}
++
++##################################################################
++# DESIGN PROCs
++##################################################################
++
++
++
++# Procedure to create entire design; Provide argument to make
++# procedure reusable. If parentCell is "", will use root.
++proc create_root_design { parentCell } {
++
++  variable script_folder
++  variable design_name
++
++  if { $parentCell eq "" } {
++     set parentCell [get_bd_cells /]
++  }
++
++  # Get object for parentCell
++  set parentObj [get_bd_cells $parentCell]
++  if { $parentObj == "" } {
++     catch {common::send_gid_msg -ssname BD::TCL -id 2090 -severity "ERROR" "Unable to find parent cell <$parentCell>!"}
++     return
++  }
++
++  # Make sure parentObj is hier blk
++  set parentType [get_property TYPE $parentObj]
++  if { $parentType ne "hier" } {
++     catch {common::send_gid_msg -ssname BD::TCL -id 2091 -severity "ERROR" "Parent <$parentObj> has TYPE = <$parentType>. Expected to be <hier>."}
++     return
++  }
++
++  # Save current instance; Restore later
++  set oldCurInst [current_bd_instance .]
++
++  # Set parent object as current
++  current_bd_instance $parentObj
++
++
++  # Create interface ports
++  set port0_0 [ create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:axis_rtl:1.0 port0_0 ]
++  set_property -dict [ list \
++   CONFIG.HAS_TKEEP {1} \
++   CONFIG.HAS_TLAST {1} \
++   CONFIG.HAS_TREADY {1} \
++   CONFIG.HAS_TSTRB {1} \
++   CONFIG.LAYERED_METADATA {undef} \
++   CONFIG.TDATA_NUM_BYTES {64} \
++   CONFIG.TDEST_WIDTH {0} \
++   CONFIG.TID_WIDTH {0} \
++   CONFIG.TUSER_WIDTH {64} \
++   ] $port0_0
++
++  set port1_0 [ create_bd_intf_port -mode Master -vlnv xilinx.com:interface:axis_rtl:1.0 port1_0 ]
++
++
++  # Create ports
++  set ap_clk_0 [ create_bd_port -dir I -type clk ap_clk_0 ]
++  set ap_rst_n_0 [ create_bd_port -dir I -type rst ap_rst_n_0 ]
++
++  # Create instance: stage_0_0, and set properties
++  set stage_0_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_0:stage_0:1.0 stage_0_0 ]
++
++  # Create instance: stage_10_0, and set properties
++  set stage_10_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_10:stage_10:1.0 stage_10_0 ]
++
++  # Create instance: stage_11_0, and set properties
++  set stage_11_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_11:stage_11:1.0 stage_11_0 ]
++
++  # Create instance: stage_12_0, and set properties
++  set stage_12_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_12:stage_12:1.0 stage_12_0 ]
++
++  # Create instance: stage_13_0, and set properties
++  set stage_13_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_13:stage_13:1.0 stage_13_0 ]
++
++  # Create instance: stage_14_0, and set properties
++  set stage_14_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_14:stage_14:1.0 stage_14_0 ]
++
++  # Create instance: stage_15_0, and set properties
++  set stage_15_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_15:stage_15:1.0 stage_15_0 ]
++
++  # Create instance: stage_16_0, and set properties
++  set stage_16_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_16:stage_16:1.0 stage_16_0 ]
++
++  # Create instance: stage_17_0, and set properties
++  set stage_17_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_17:stage_17:1.0 stage_17_0 ]
++
++  # Create instance: stage_18_0, and set properties
++  set stage_18_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_18:stage_18:1.0 stage_18_0 ]
++
++  # Create instance: stage_19_0, and set properties
++  set stage_19_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_19:stage_19:1.0 stage_19_0 ]
++
++  # Create instance: stage_1_0, and set properties
++  set stage_1_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_1:stage_1:1.0 stage_1_0 ]
++
++  # Create instance: stage_20_0, and set properties
++  set stage_20_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_20:stage_20:1.0 stage_20_0 ]
++
++  # Create instance: stage_21_0, and set properties
++  set stage_21_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_21:stage_21:1.0 stage_21_0 ]
++
++  # Create instance: stage_22_0, and set properties
++  set stage_22_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_22:stage_22:1.0 stage_22_0 ]
++
++  # Create instance: stage_23_0, and set properties
++  set stage_23_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_23:stage_23:1.0 stage_23_0 ]
++
++  # Create instance: stage_24_0, and set properties
++  set stage_24_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_24:stage_24:1.0 stage_24_0 ]
++
++  # Create instance: stage_25_0, and set properties
++  set stage_25_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_25:stage_25:1.0 stage_25_0 ]
++
++  # Create instance: stage_26_0, and set properties
++  set stage_26_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_26:stage_26:1.0 stage_26_0 ]
++
++  # Create instance: stage_27_0, and set properties
++  set stage_27_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_27:stage_27:1.0 stage_27_0 ]
++
++  # Create instance: stage_28_0, and set properties
++  set stage_28_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_28:stage_28:1.0 stage_28_0 ]
++
++  # Create instance: stage_29_0, and set properties
++  set stage_29_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_29:stage_29:1.0 stage_29_0 ]
++
++  # Create instance: stage_2_0, and set properties
++  set stage_2_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_2:stage_2:1.0 stage_2_0 ]
++
++  # Create instance: stage_30_0, and set properties
++  set stage_30_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_30:stage_30:1.0 stage_30_0 ]
++
++  # Create instance: stage_31_0, and set properties
++  set stage_31_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_31:stage_31:1.0 stage_31_0 ]
++
++  # Create instance: stage_32_0, and set properties
++  set stage_32_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_32:stage_32:1.0 stage_32_0 ]
++
++  # Create instance: stage_33_0, and set properties
++  set stage_33_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_33:stage_33:1.0 stage_33_0 ]
++
++  # Create instance: stage_34_0, and set properties
++  set stage_34_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_34:stage_34:1.0 stage_34_0 ]
++
++  # Create instance: stage_35_0, and set properties
++  set stage_35_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_35:stage_35:1.0 stage_35_0 ]
++
++  # Create instance: stage_36_0, and set properties
++  set stage_36_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_36:stage_36:1.0 stage_36_0 ]
++
++  # Create instance: stage_37_0, and set properties
++  set stage_37_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_37:stage_37:1.0 stage_37_0 ]
++
++  # Create instance: stage_38_0, and set properties
++  set stage_38_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_38:stage_38:1.0 stage_38_0 ]
++
++  # Create instance: stage_39_0, and set properties
++  set stage_39_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_39:stage_39:1.0 stage_39_0 ]
++
++  # Create instance: stage_3_0, and set properties
++  set stage_3_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_3:stage_3:1.0 stage_3_0 ]
++
++  # Create instance: stage_40_0, and set properties
++  set stage_40_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_40:stage_40:1.0 stage_40_0 ]
++
++  # Create instance: stage_41_0, and set properties
++  set stage_41_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_41:stage_41:1.0 stage_41_0 ]
++
++  # Create instance: stage_42_0, and set properties
++  set stage_42_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_42:stage_42:1.0 stage_42_0 ]
++
++  # Create instance: stage_43_0, and set properties
++  set stage_43_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_43:stage_43:1.0 stage_43_0 ]
++
++  # Create instance: stage_44_0, and set properties
++  set stage_44_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_44:stage_44:1.0 stage_44_0 ]
++
++  # Create instance: stage_45_0, and set properties
++  set stage_45_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_45:stage_45:1.0 stage_45_0 ]
++
++  # Create instance: stage_46_0, and set properties
++  set stage_46_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_46:stage_46:1.0 stage_46_0 ]
++
++  # Create instance: stage_47_0, and set properties
++  set stage_47_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_47:stage_47:1.0 stage_47_0 ]
++
++  # Create instance: stage_48_0, and set properties
++  set stage_48_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_48:stage_48:1.0 stage_48_0 ]
++
++  # Create instance: stage_49_0, and set properties
++  set stage_49_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_49:stage_49:1.0 stage_49_0 ]
++
++  # Create instance: stage_4_0, and set properties
++  set stage_4_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_4:stage_4:1.0 stage_4_0 ]
++
++  # Create instance: stage_50_0, and set properties
++  set stage_50_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_50:stage_50:1.0 stage_50_0 ]
++
++  # Create instance: stage_51_0, and set properties
++  set stage_51_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_51:stage_51:1.0 stage_51_0 ]
++
++  # Create instance: stage_52_0, and set properties
++  set stage_52_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_52:stage_52:1.0 stage_52_0 ]
++
++  # Create instance: stage_53_0, and set properties
++  set stage_53_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_53:stage_53:1.0 stage_53_0 ]
++
++  # Create instance: stage_54_0, and set properties
++  set stage_54_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_54:stage_54:1.0 stage_54_0 ]
++
++  # Create instance: stage_55_0, and set properties
++  set stage_55_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_55:stage_55:1.0 stage_55_0 ]
++
++  # Create instance: stage_56_0, and set properties
++  set stage_56_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_56:stage_56:1.0 stage_56_0 ]
++
++  # Create instance: stage_57_0, and set properties
++  set stage_57_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_57:stage_57:1.0 stage_57_0 ]
++
++  # Create instance: stage_58_0, and set properties
++  set stage_58_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_58:stage_58:1.0 stage_58_0 ]
++
++  # Create instance: stage_59_0, and set properties
++  set stage_59_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_59:stage_59:1.0 stage_59_0 ]
++
++  # Create instance: stage_5_0, and set properties
++  set stage_5_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_5:stage_5:1.0 stage_5_0 ]
++
++  # Create instance: stage_60_0, and set properties
++  set stage_60_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_60:stage_60:1.0 stage_60_0 ]
++
++  # Create instance: stage_61_0, and set properties
++  set stage_61_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_61:stage_61:1.0 stage_61_0 ]
++
++  # Create instance: stage_62_0, and set properties
++  set stage_62_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_62:stage_62:1.0 stage_62_0 ]
++
++  # Create instance: stage_63_0, and set properties
++  set stage_63_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_63:stage_63:1.0 stage_63_0 ]
++
++  # Create instance: stage_64_0, and set properties
++  set stage_64_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_64:stage_64:1.0 stage_64_0 ]
++
++  # Create instance: stage_65_0, and set properties
++  set stage_65_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_65:stage_65:1.0 stage_65_0 ]
++
++  # Create instance: stage_66_0, and set properties
++  set stage_66_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_66:stage_66:1.0 stage_66_0 ]
++
++  # Create instance: stage_67_0, and set properties
++  set stage_67_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_67:stage_67:1.0 stage_67_0 ]
++
++  # Create instance: stage_68_0, and set properties
++  set stage_68_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_68:stage_68:1.0 stage_68_0 ]
++
++  # Create instance: stage_69_0, and set properties
++  set stage_69_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_69:stage_69:1.0 stage_69_0 ]
++
++  # Create instance: stage_6_0, and set properties
++  set stage_6_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_6:stage_6:1.0 stage_6_0 ]
++
++  # Create instance: stage_70_0, and set properties
++  set stage_70_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_70:stage_70:1.0 stage_70_0 ]
++
++  # Create instance: stage_71_0, and set properties
++  set stage_71_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_71:stage_71:1.0 stage_71_0 ]
++
++  # Create instance: stage_72_0, and set properties
++  set stage_72_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_72:stage_72:1.0 stage_72_0 ]
++
++  # Create instance: stage_73_0, and set properties
++  set stage_73_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_73:stage_73:1.0 stage_73_0 ]
++
++  # Create instance: stage_74_0, and set properties
++  set stage_74_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_74:stage_74:1.0 stage_74_0 ]
++
++  # Create instance: stage_75_0, and set properties
++  set stage_75_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_75:stage_75:1.0 stage_75_0 ]
++
++  # Create instance: stage_76_0, and set properties
++  set stage_76_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_76:stage_76:1.0 stage_76_0 ]
++
++  # Create instance: stage_77_0, and set properties
++  set stage_77_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_77:stage_77:1.0 stage_77_0 ]
++
++  # Create instance: stage_78_0, and set properties
++  set stage_78_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_78:stage_78:1.0 stage_78_0 ]
++
++  # Create instance: stage_79_0, and set properties
++  set stage_79_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_79:stage_79:1.0 stage_79_0 ]
++
++  # Create instance: stage_7_0, and set properties
++  set stage_7_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_7:stage_7:1.0 stage_7_0 ]
++
++  # Create instance: stage_8_0, and set properties
++  set stage_8_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_8:stage_8:1.0 stage_8_0 ]
++
++  # Create instance: stage_9_0, and set properties
++  set stage_9_0 [ create_bd_cell -type ip -vlnv Xilinx:stage_9:stage_9:1.0 stage_9_0 ]
++
++  # Create interface connections
++  connect_bd_intf_net -intf_net port0_0_1 [get_bd_intf_ports port0_0] [get_bd_intf_pins stage_8_0/port0]
++  connect_bd_intf_net -intf_net stage_0_0_port1 [get_bd_intf_pins stage_0_0/port1] [get_bd_intf_pins stage_51_0/port4]
++  connect_bd_intf_net -intf_net stage_0_0_port3 [get_bd_intf_pins stage_0_0/port3] [get_bd_intf_pins stage_56_0/port4]
++  connect_bd_intf_net -intf_net stage_10_0_port1 [get_bd_intf_pins stage_10_0/port1] [get_bd_intf_pins stage_11_0/port0]
++  connect_bd_intf_net -intf_net stage_10_0_port2 [get_bd_intf_pins stage_10_0/port2] [get_bd_intf_pins stage_11_0/port3]
++  connect_bd_intf_net -intf_net stage_11_0_port1 [get_bd_intf_pins stage_11_0/port1] [get_bd_intf_pins stage_12_0/port0]
++  connect_bd_intf_net -intf_net stage_11_0_port2 [get_bd_intf_pins stage_11_0/port2] [get_bd_intf_pins stage_12_0/port3]
++  connect_bd_intf_net -intf_net stage_12_0_port1 [get_bd_intf_pins stage_12_0/port1] [get_bd_intf_pins stage_13_0/port0]
++  connect_bd_intf_net -intf_net stage_12_0_port2 [get_bd_intf_pins stage_12_0/port2] [get_bd_intf_pins stage_13_0/port3]
++  connect_bd_intf_net -intf_net stage_13_0_port1 [get_bd_intf_pins stage_13_0/port1] [get_bd_intf_pins stage_14_0/port0]
++  connect_bd_intf_net -intf_net stage_13_0_port2 [get_bd_intf_pins stage_13_0/port2] [get_bd_intf_pins stage_14_0/port3]
++  connect_bd_intf_net -intf_net stage_14_0_port1 [get_bd_intf_pins stage_14_0/port1] [get_bd_intf_pins stage_15_0/port0]
++  connect_bd_intf_net -intf_net stage_14_0_port2 [get_bd_intf_pins stage_14_0/port2] [get_bd_intf_pins stage_15_0/port3]
++  connect_bd_intf_net -intf_net stage_14_0_port4 [get_bd_intf_pins stage_14_0/port4] [get_bd_intf_pins stage_1_0/port0]
++  connect_bd_intf_net -intf_net stage_15_0_port1 [get_bd_intf_pins stage_15_0/port1] [get_bd_intf_pins stage_16_0/port0]
++  connect_bd_intf_net -intf_net stage_15_0_port2 [get_bd_intf_pins stage_15_0/port2] [get_bd_intf_pins stage_16_0/port3]
++  connect_bd_intf_net -intf_net stage_15_0_port5 [get_bd_intf_pins stage_15_0/port5] [get_bd_intf_pins stage_1_0/port2]
++  connect_bd_intf_net -intf_net stage_16_0_port1 [get_bd_intf_pins stage_16_0/port1] [get_bd_intf_pins stage_17_0/port0]
++  connect_bd_intf_net -intf_net stage_16_0_port2 [get_bd_intf_pins stage_16_0/port2] [get_bd_intf_pins stage_17_0/port3]
++  connect_bd_intf_net -intf_net stage_16_0_port5 [get_bd_intf_pins stage_16_0/port5] [get_bd_intf_pins stage_1_0/port4]
++  connect_bd_intf_net -intf_net stage_17_0_port1 [get_bd_intf_pins stage_17_0/port1] [get_bd_intf_pins stage_18_0/port0]
++  connect_bd_intf_net -intf_net stage_17_0_port2 [get_bd_intf_pins stage_17_0/port2] [get_bd_intf_pins stage_18_0/port3]
++  connect_bd_intf_net -intf_net stage_17_0_port5 [get_bd_intf_pins stage_17_0/port5] [get_bd_intf_pins stage_6_0/port0]
++  connect_bd_intf_net -intf_net stage_18_0_port1 [get_bd_intf_pins stage_18_0/port1] [get_bd_intf_pins stage_19_0/port0]
++  connect_bd_intf_net -intf_net stage_18_0_port2 [get_bd_intf_pins stage_18_0/port2] [get_bd_intf_pins stage_19_0/port3]
++  connect_bd_intf_net -intf_net stage_18_0_port5 [get_bd_intf_pins stage_18_0/port5] [get_bd_intf_pins stage_6_0/port2]
++  connect_bd_intf_net -intf_net stage_19_0_port1 [get_bd_intf_pins stage_19_0/port1] [get_bd_intf_pins stage_20_0/port0]
++  connect_bd_intf_net -intf_net stage_19_0_port2 [get_bd_intf_pins stage_19_0/port2] [get_bd_intf_pins stage_20_0/port3]
++  connect_bd_intf_net -intf_net stage_19_0_port5 [get_bd_intf_pins stage_19_0/port5] [get_bd_intf_pins stage_6_0/port4]
++  connect_bd_intf_net -intf_net stage_1_0_port1 [get_bd_intf_pins stage_15_0/port4] [get_bd_intf_pins stage_1_0/port1]
++  connect_bd_intf_net -intf_net stage_1_0_port3 [get_bd_intf_pins stage_16_0/port4] [get_bd_intf_pins stage_1_0/port3]
++  connect_bd_intf_net -intf_net stage_1_0_port5 [get_bd_intf_pins stage_17_0/port4] [get_bd_intf_pins stage_1_0/port5]
++  connect_bd_intf_net -intf_net stage_1_0_port7 [get_bd_intf_pins stage_1_0/port7] [get_bd_intf_pins stage_21_0/port4]
++  connect_bd_intf_net -intf_net stage_1_0_port9 [get_bd_intf_pins stage_1_0/port9] [get_bd_intf_pins stage_25_0/port4]
++  connect_bd_intf_net -intf_net stage_1_0_port11 [get_bd_intf_pins stage_1_0/port11] [get_bd_intf_pins stage_26_0/port4]
++  connect_bd_intf_net -intf_net stage_1_0_port13 [get_bd_intf_pins stage_1_0/port13] [get_bd_intf_pins stage_40_0/port4]
++  connect_bd_intf_net -intf_net stage_1_0_port15 [get_bd_intf_pins stage_1_0/port15] [get_bd_intf_pins stage_41_0/port4]
++  connect_bd_intf_net -intf_net stage_1_0_port17 [get_bd_intf_pins stage_1_0/port17] [get_bd_intf_pins stage_45_0/port4]
++  connect_bd_intf_net -intf_net stage_1_0_port19 [get_bd_intf_pins stage_1_0/port19] [get_bd_intf_pins stage_65_0/port4]
++  connect_bd_intf_net -intf_net stage_20_0_port1 [get_bd_intf_pins stage_20_0/port1] [get_bd_intf_pins stage_21_0/port0]
++  connect_bd_intf_net -intf_net stage_20_0_port2 [get_bd_intf_pins stage_20_0/port2] [get_bd_intf_pins stage_21_0/port3]
++  connect_bd_intf_net -intf_net stage_20_0_port4 [get_bd_intf_pins stage_1_0/port6] [get_bd_intf_pins stage_20_0/port4]
++  connect_bd_intf_net -intf_net stage_21_0_port1 [get_bd_intf_pins stage_21_0/port1] [get_bd_intf_pins stage_22_0/port0]
++  connect_bd_intf_net -intf_net stage_21_0_port2 [get_bd_intf_pins stage_21_0/port2] [get_bd_intf_pins stage_22_0/port3]
++  connect_bd_intf_net -intf_net stage_22_0_port1 [get_bd_intf_pins stage_22_0/port1] [get_bd_intf_pins stage_23_0/port0]
++  connect_bd_intf_net -intf_net stage_22_0_port2 [get_bd_intf_pins stage_22_0/port2] [get_bd_intf_pins stage_23_0/port3]
++  connect_bd_intf_net -intf_net stage_23_0_port1 [get_bd_intf_pins stage_23_0/port1] [get_bd_intf_pins stage_24_0/port0]
++  connect_bd_intf_net -intf_net stage_23_0_port2 [get_bd_intf_pins stage_23_0/port2] [get_bd_intf_pins stage_24_0/port3]
++  connect_bd_intf_net -intf_net stage_23_0_port4 [get_bd_intf_pins stage_23_0/port4] [get_bd_intf_pins stage_7_0/port0]
++  connect_bd_intf_net -intf_net stage_24_0_port1 [get_bd_intf_pins stage_24_0/port1] [get_bd_intf_pins stage_25_0/port0]
++  connect_bd_intf_net -intf_net stage_24_0_port2 [get_bd_intf_pins stage_24_0/port2] [get_bd_intf_pins stage_25_0/port3]
++  connect_bd_intf_net -intf_net stage_24_0_port4 [get_bd_intf_pins stage_1_0/port8] [get_bd_intf_pins stage_24_0/port4]
++  connect_bd_intf_net -intf_net stage_25_0_port1 [get_bd_intf_pins stage_25_0/port1] [get_bd_intf_pins stage_26_0/port0]
++  connect_bd_intf_net -intf_net stage_25_0_port2 [get_bd_intf_pins stage_25_0/port2] [get_bd_intf_pins stage_26_0/port3]
++  connect_bd_intf_net -intf_net stage_25_0_port5 [get_bd_intf_pins stage_1_0/port10] [get_bd_intf_pins stage_25_0/port5]
++  connect_bd_intf_net -intf_net stage_26_0_port1 [get_bd_intf_pins stage_26_0/port1] [get_bd_intf_pins stage_27_0/port0]
++  connect_bd_intf_net -intf_net stage_26_0_port2 [get_bd_intf_pins stage_26_0/port2] [get_bd_intf_pins stage_27_0/port3]
++  connect_bd_intf_net -intf_net stage_26_0_port5 [get_bd_intf_pins stage_26_0/port5] [get_bd_intf_pins stage_2_0/port0]
++  connect_bd_intf_net -intf_net stage_27_0_port1 [get_bd_intf_pins stage_27_0/port1] [get_bd_intf_pins stage_28_0/port0]
++  connect_bd_intf_net -intf_net stage_27_0_port2 [get_bd_intf_pins stage_27_0/port2] [get_bd_intf_pins stage_28_0/port3]
++  connect_bd_intf_net -intf_net stage_27_0_port5 [get_bd_intf_pins stage_27_0/port5] [get_bd_intf_pins stage_2_0/port2]
++  connect_bd_intf_net -intf_net stage_28_0_port1 [get_bd_intf_pins stage_28_0/port1] [get_bd_intf_pins stage_29_0/port0]
++  connect_bd_intf_net -intf_net stage_28_0_port2 [get_bd_intf_pins stage_28_0/port2] [get_bd_intf_pins stage_29_0/port3]
++  connect_bd_intf_net -intf_net stage_28_0_port5 [get_bd_intf_pins stage_28_0/port5] [get_bd_intf_pins stage_2_0/port4]
++  connect_bd_intf_net -intf_net stage_29_0_port1 [get_bd_intf_pins stage_29_0/port1] [get_bd_intf_pins stage_30_0/port0]
++  connect_bd_intf_net -intf_net stage_29_0_port2 [get_bd_intf_pins stage_29_0/port2] [get_bd_intf_pins stage_30_0/port3]
++  connect_bd_intf_net -intf_net stage_29_0_port5 [get_bd_intf_pins stage_29_0/port5] [get_bd_intf_pins stage_2_0/port6]
++  connect_bd_intf_net -intf_net stage_2_0_port1 [get_bd_intf_pins stage_27_0/port4] [get_bd_intf_pins stage_2_0/port1]
++  connect_bd_intf_net -intf_net stage_2_0_port3 [get_bd_intf_pins stage_28_0/port4] [get_bd_intf_pins stage_2_0/port3]
++  connect_bd_intf_net -intf_net stage_2_0_port5 [get_bd_intf_pins stage_29_0/port4] [get_bd_intf_pins stage_2_0/port5]
++  connect_bd_intf_net -intf_net stage_2_0_port7 [get_bd_intf_pins stage_2_0/port7] [get_bd_intf_pins stage_30_0/port4]
++  connect_bd_intf_net -intf_net stage_2_0_port9 [get_bd_intf_pins stage_2_0/port9] [get_bd_intf_pins stage_46_0/port4]
++  connect_bd_intf_net -intf_net stage_30_0_port1 [get_bd_intf_pins stage_30_0/port1] [get_bd_intf_pins stage_31_0/port0]
++  connect_bd_intf_net -intf_net stage_30_0_port2 [get_bd_intf_pins stage_30_0/port2] [get_bd_intf_pins stage_31_0/port3]
++  connect_bd_intf_net -intf_net stage_30_0_port5 [get_bd_intf_pins stage_30_0/port5] [get_bd_intf_pins stage_4_0/port0]
++  connect_bd_intf_net -intf_net stage_31_0_port1 [get_bd_intf_pins stage_31_0/port1] [get_bd_intf_pins stage_32_0/port0]
++  connect_bd_intf_net -intf_net stage_31_0_port2 [get_bd_intf_pins stage_31_0/port2] [get_bd_intf_pins stage_32_0/port3]
++  connect_bd_intf_net -intf_net stage_31_0_port5 [get_bd_intf_pins stage_31_0/port5] [get_bd_intf_pins stage_6_0/port6]
++  connect_bd_intf_net -intf_net stage_32_0_port1 [get_bd_intf_pins stage_32_0/port1] [get_bd_intf_pins stage_33_0/port0]
++  connect_bd_intf_net -intf_net stage_32_0_port2 [get_bd_intf_pins stage_32_0/port2] [get_bd_intf_pins stage_33_0/port3]
++  connect_bd_intf_net -intf_net stage_32_0_port5 [get_bd_intf_pins stage_32_0/port5] [get_bd_intf_pins stage_6_0/port8]
++  connect_bd_intf_net -intf_net stage_33_0_port1 [get_bd_intf_pins stage_33_0/port1] [get_bd_intf_pins stage_34_0/port0]
++  connect_bd_intf_net -intf_net stage_33_0_port2 [get_bd_intf_pins stage_33_0/port2] [get_bd_intf_pins stage_34_0/port3]
++  connect_bd_intf_net -intf_net stage_33_0_port5 [get_bd_intf_pins stage_33_0/port5] [get_bd_intf_pins stage_6_0/port10]
++  connect_bd_intf_net -intf_net stage_34_0_port1 [get_bd_intf_pins stage_34_0/port1] [get_bd_intf_pins stage_35_0/port0]
++  connect_bd_intf_net -intf_net stage_34_0_port2 [get_bd_intf_pins stage_34_0/port2] [get_bd_intf_pins stage_35_0/port3]
++  connect_bd_intf_net -intf_net stage_34_0_port5 [get_bd_intf_pins stage_34_0/port5] [get_bd_intf_pins stage_6_0/port12]
++  connect_bd_intf_net -intf_net stage_35_0_port1 [get_bd_intf_pins stage_35_0/port1] [get_bd_intf_pins stage_36_0/port0]
++  connect_bd_intf_net -intf_net stage_35_0_port2 [get_bd_intf_pins stage_35_0/port2] [get_bd_intf_pins stage_36_0/port3]
++  connect_bd_intf_net -intf_net stage_35_0_port5 [get_bd_intf_pins stage_35_0/port5] [get_bd_intf_pins stage_6_0/port14]
++  connect_bd_intf_net -intf_net stage_36_0_port1 [get_bd_intf_pins stage_36_0/port1] [get_bd_intf_pins stage_37_0/port0]
++  connect_bd_intf_net -intf_net stage_36_0_port2 [get_bd_intf_pins stage_36_0/port2] [get_bd_intf_pins stage_37_0/port3]
++  connect_bd_intf_net -intf_net stage_36_0_port5 [get_bd_intf_pins stage_36_0/port5] [get_bd_intf_pins stage_6_0/port16]
++  connect_bd_intf_net -intf_net stage_37_0_port1 [get_bd_intf_pins stage_37_0/port1] [get_bd_intf_pins stage_38_0/port0]
++  connect_bd_intf_net -intf_net stage_37_0_port2 [get_bd_intf_pins stage_37_0/port2] [get_bd_intf_pins stage_38_0/port3]
++  connect_bd_intf_net -intf_net stage_37_0_port5 [get_bd_intf_pins stage_37_0/port5] [get_bd_intf_pins stage_6_0/port18]
++  connect_bd_intf_net -intf_net stage_38_0_port1 [get_bd_intf_pins stage_38_0/port1] [get_bd_intf_pins stage_39_0/port0]
++  connect_bd_intf_net -intf_net stage_38_0_port2 [get_bd_intf_pins stage_38_0/port2] [get_bd_intf_pins stage_39_0/port3]
++  connect_bd_intf_net -intf_net stage_38_0_port5 [get_bd_intf_pins stage_38_0/port5] [get_bd_intf_pins stage_6_0/port20]
++  connect_bd_intf_net -intf_net stage_39_0_port1 [get_bd_intf_pins stage_39_0/port1] [get_bd_intf_pins stage_40_0/port0]
++  connect_bd_intf_net -intf_net stage_39_0_port2 [get_bd_intf_pins stage_39_0/port2] [get_bd_intf_pins stage_40_0/port3]
++  connect_bd_intf_net -intf_net stage_39_0_port4 [get_bd_intf_pins stage_1_0/port12] [get_bd_intf_pins stage_39_0/port4]
++  connect_bd_intf_net -intf_net stage_3_0_port1 [get_bd_intf_pins stage_3_0/port1] [get_bd_intf_pins stage_42_0/port4]
++  connect_bd_intf_net -intf_net stage_3_0_port3 [get_bd_intf_pins stage_3_0/port3] [get_bd_intf_pins stage_43_0/port4]
++  connect_bd_intf_net -intf_net stage_40_0_port1 [get_bd_intf_pins stage_40_0/port1] [get_bd_intf_pins stage_41_0/port0]
++  connect_bd_intf_net -intf_net stage_40_0_port2 [get_bd_intf_pins stage_40_0/port2] [get_bd_intf_pins stage_41_0/port3]
++  connect_bd_intf_net -intf_net stage_40_0_port5 [get_bd_intf_pins stage_1_0/port14] [get_bd_intf_pins stage_40_0/port5]
++  connect_bd_intf_net -intf_net stage_41_0_port1 [get_bd_intf_pins stage_41_0/port1] [get_bd_intf_pins stage_42_0/port0]
++  connect_bd_intf_net -intf_net stage_41_0_port2 [get_bd_intf_pins stage_41_0/port2] [get_bd_intf_pins stage_42_0/port3]
++  connect_bd_intf_net -intf_net stage_41_0_port5 [get_bd_intf_pins stage_3_0/port0] [get_bd_intf_pins stage_41_0/port5]
++  connect_bd_intf_net -intf_net stage_42_0_port1 [get_bd_intf_pins stage_42_0/port1] [get_bd_intf_pins stage_43_0/port0]
++  connect_bd_intf_net -intf_net stage_42_0_port2 [get_bd_intf_pins stage_42_0/port2] [get_bd_intf_pins stage_43_0/port3]
++  connect_bd_intf_net -intf_net stage_42_0_port5 [get_bd_intf_pins stage_3_0/port2] [get_bd_intf_pins stage_42_0/port5]
++  connect_bd_intf_net -intf_net stage_43_0_port1 [get_bd_intf_pins stage_43_0/port1] [get_bd_intf_pins stage_44_0/port0]
++  connect_bd_intf_net -intf_net stage_43_0_port2 [get_bd_intf_pins stage_43_0/port2] [get_bd_intf_pins stage_44_0/port3]
++  connect_bd_intf_net -intf_net stage_43_0_port5 [get_bd_intf_pins stage_43_0/port5] [get_bd_intf_pins stage_4_0/port2]
++  connect_bd_intf_net -intf_net stage_44_0_port1 [get_bd_intf_pins stage_44_0/port1] [get_bd_intf_pins stage_45_0/port0]
++  connect_bd_intf_net -intf_net stage_44_0_port2 [get_bd_intf_pins stage_44_0/port2] [get_bd_intf_pins stage_45_0/port3]
++  connect_bd_intf_net -intf_net stage_44_0_port4 [get_bd_intf_pins stage_1_0/port16] [get_bd_intf_pins stage_44_0/port4]
++  connect_bd_intf_net -intf_net stage_45_0_port1 [get_bd_intf_pins stage_45_0/port1] [get_bd_intf_pins stage_46_0/port0]
++  connect_bd_intf_net -intf_net stage_45_0_port2 [get_bd_intf_pins stage_45_0/port2] [get_bd_intf_pins stage_46_0/port3]
++  connect_bd_intf_net -intf_net stage_45_0_port5 [get_bd_intf_pins stage_2_0/port8] [get_bd_intf_pins stage_45_0/port5]
++  connect_bd_intf_net -intf_net stage_46_0_port1 [get_bd_intf_pins stage_46_0/port1] [get_bd_intf_pins stage_47_0/port0]
++  connect_bd_intf_net -intf_net stage_46_0_port2 [get_bd_intf_pins stage_46_0/port2] [get_bd_intf_pins stage_47_0/port3]
++  connect_bd_intf_net -intf_net stage_46_0_port5 [get_bd_intf_pins stage_46_0/port5] [get_bd_intf_pins stage_7_0/port2]
++  connect_bd_intf_net -intf_net stage_47_0_port1 [get_bd_intf_pins stage_47_0/port1] [get_bd_intf_pins stage_48_0/port0]
++  connect_bd_intf_net -intf_net stage_47_0_port2 [get_bd_intf_pins stage_47_0/port2] [get_bd_intf_pins stage_48_0/port3]
++  connect_bd_intf_net -intf_net stage_47_0_port4 [get_bd_intf_pins stage_47_0/port4] [get_bd_intf_pins stage_6_0/port22]
++  connect_bd_intf_net -intf_net stage_48_0_port1 [get_bd_intf_pins stage_48_0/port1] [get_bd_intf_pins stage_49_0/port0]
++  connect_bd_intf_net -intf_net stage_48_0_port2 [get_bd_intf_pins stage_48_0/port2] [get_bd_intf_pins stage_49_0/port3]
++  connect_bd_intf_net -intf_net stage_48_0_port4 [get_bd_intf_pins stage_48_0/port4] [get_bd_intf_pins stage_4_0/port4]
++  connect_bd_intf_net -intf_net stage_49_0_port1 [get_bd_intf_pins stage_49_0/port1] [get_bd_intf_pins stage_50_0/port0]
++  connect_bd_intf_net -intf_net stage_49_0_port2 [get_bd_intf_pins stage_49_0/port2] [get_bd_intf_pins stage_50_0/port3]
++  connect_bd_intf_net -intf_net stage_49_0_port5 [get_bd_intf_pins stage_49_0/port5] [get_bd_intf_pins stage_6_0/port24]
++  connect_bd_intf_net -intf_net stage_4_0_port1 [get_bd_intf_pins stage_31_0/port4] [get_bd_intf_pins stage_4_0/port1]
++  connect_bd_intf_net -intf_net stage_4_0_port3 [get_bd_intf_pins stage_44_0/port5] [get_bd_intf_pins stage_4_0/port3]
++  connect_bd_intf_net -intf_net stage_4_0_port5 [get_bd_intf_pins stage_49_0/port4] [get_bd_intf_pins stage_4_0/port5]
++  connect_bd_intf_net -intf_net stage_4_0_port7 [get_bd_intf_pins stage_4_0/port7] [get_bd_intf_pins stage_52_0/port4]
++  connect_bd_intf_net -intf_net stage_4_0_port9 [get_bd_intf_pins stage_4_0/port9] [get_bd_intf_pins stage_58_0/port4]
++  connect_bd_intf_net -intf_net stage_4_0_port11 [get_bd_intf_pins stage_4_0/port11] [get_bd_intf_pins stage_64_0/port5]
++  connect_bd_intf_net -intf_net stage_50_0_port1 [get_bd_intf_pins stage_50_0/port1] [get_bd_intf_pins stage_51_0/port0]
++  connect_bd_intf_net -intf_net stage_50_0_port2 [get_bd_intf_pins stage_50_0/port2] [get_bd_intf_pins stage_51_0/port3]
++  connect_bd_intf_net -intf_net stage_50_0_port4 [get_bd_intf_pins stage_0_0/port0] [get_bd_intf_pins stage_50_0/port4]
++  connect_bd_intf_net -intf_net stage_51_0_port1 [get_bd_intf_pins stage_51_0/port1] [get_bd_intf_pins stage_52_0/port0]
++  connect_bd_intf_net -intf_net stage_51_0_port2 [get_bd_intf_pins stage_51_0/port2] [get_bd_intf_pins stage_52_0/port3]
++  connect_bd_intf_net -intf_net stage_51_0_port5 [get_bd_intf_pins stage_4_0/port6] [get_bd_intf_pins stage_51_0/port5]
++  connect_bd_intf_net -intf_net stage_52_0_port1 [get_bd_intf_pins stage_52_0/port1] [get_bd_intf_pins stage_53_0/port0]
++  connect_bd_intf_net -intf_net stage_52_0_port2 [get_bd_intf_pins stage_52_0/port2] [get_bd_intf_pins stage_53_0/port3]
++  connect_bd_intf_net -intf_net stage_53_0_port1 [get_bd_intf_pins stage_53_0/port1] [get_bd_intf_pins stage_54_0/port0]
++  connect_bd_intf_net -intf_net stage_53_0_port2 [get_bd_intf_pins stage_53_0/port2] [get_bd_intf_pins stage_54_0/port3]
++  connect_bd_intf_net -intf_net stage_53_0_port4 [get_bd_intf_pins stage_53_0/port4] [get_bd_intf_pins stage_54_0/port4]
++  connect_bd_intf_net -intf_net stage_54_0_port1 [get_bd_intf_pins stage_54_0/port1] [get_bd_intf_pins stage_55_0/port0]
++  connect_bd_intf_net -intf_net stage_54_0_port2 [get_bd_intf_pins stage_54_0/port2] [get_bd_intf_pins stage_55_0/port3]
++  connect_bd_intf_net -intf_net stage_55_0_port1 [get_bd_intf_pins stage_55_0/port1] [get_bd_intf_pins stage_56_0/port0]
++  connect_bd_intf_net -intf_net stage_55_0_port2 [get_bd_intf_pins stage_55_0/port2] [get_bd_intf_pins stage_56_0/port3]
++  connect_bd_intf_net -intf_net stage_55_0_port4 [get_bd_intf_pins stage_0_0/port2] [get_bd_intf_pins stage_55_0/port4]
++  connect_bd_intf_net -intf_net stage_56_0_port1 [get_bd_intf_pins stage_56_0/port1] [get_bd_intf_pins stage_57_0/port0]
++  connect_bd_intf_net -intf_net stage_56_0_port2 [get_bd_intf_pins stage_56_0/port2] [get_bd_intf_pins stage_57_0/port3]
++  connect_bd_intf_net -intf_net stage_57_0_port1 [get_bd_intf_pins stage_57_0/port1] [get_bd_intf_pins stage_58_0/port0]
++  connect_bd_intf_net -intf_net stage_57_0_port2 [get_bd_intf_pins stage_57_0/port2] [get_bd_intf_pins stage_58_0/port3]
++  connect_bd_intf_net -intf_net stage_57_0_port4 [get_bd_intf_pins stage_4_0/port8] [get_bd_intf_pins stage_57_0/port4]
++  connect_bd_intf_net -intf_net stage_58_0_port1 [get_bd_intf_pins stage_58_0/port1] [get_bd_intf_pins stage_59_0/port0]
++  connect_bd_intf_net -intf_net stage_58_0_port2 [get_bd_intf_pins stage_58_0/port2] [get_bd_intf_pins stage_59_0/port3]
++  connect_bd_intf_net -intf_net stage_59_0_port1 [get_bd_intf_pins stage_59_0/port1] [get_bd_intf_pins stage_60_0/port0]
++  connect_bd_intf_net -intf_net stage_59_0_port2 [get_bd_intf_pins stage_59_0/port2] [get_bd_intf_pins stage_60_0/port3]
++  connect_bd_intf_net -intf_net stage_5_0_port1 [get_bd_intf_pins stage_5_0/port1] [get_bd_intf_pins stage_71_0/port4]
++  connect_bd_intf_net -intf_net stage_5_0_port3 [get_bd_intf_pins stage_5_0/port3] [get_bd_intf_pins stage_72_0/port4]
++  connect_bd_intf_net -intf_net stage_5_0_port5 [get_bd_intf_pins stage_5_0/port5] [get_bd_intf_pins stage_73_0/port4]
++  connect_bd_intf_net -intf_net stage_5_0_port7 [get_bd_intf_pins stage_5_0/port7] [get_bd_intf_pins stage_74_0/port4]
++  connect_bd_intf_net -intf_net stage_5_0_port9 [get_bd_intf_pins stage_5_0/port9] [get_bd_intf_pins stage_76_0/port4]
++  connect_bd_intf_net -intf_net stage_60_0_port1 [get_bd_intf_pins stage_60_0/port1] [get_bd_intf_pins stage_61_0/port0]
++  connect_bd_intf_net -intf_net stage_60_0_port2 [get_bd_intf_pins stage_60_0/port2] [get_bd_intf_pins stage_61_0/port3]
++  connect_bd_intf_net -intf_net stage_61_0_port1 [get_bd_intf_pins stage_61_0/port1] [get_bd_intf_pins stage_62_0/port0]
++  connect_bd_intf_net -intf_net stage_61_0_port2 [get_bd_intf_pins stage_61_0/port2] [get_bd_intf_pins stage_62_0/port3]
++  connect_bd_intf_net -intf_net stage_62_0_port1 [get_bd_intf_pins stage_62_0/port1] [get_bd_intf_pins stage_63_0/port0]
++  connect_bd_intf_net -intf_net stage_62_0_port2 [get_bd_intf_pins stage_62_0/port2] [get_bd_intf_pins stage_63_0/port3]
++  connect_bd_intf_net -intf_net stage_63_0_port1 [get_bd_intf_pins stage_63_0/port1] [get_bd_intf_pins stage_64_0/port0]
++  connect_bd_intf_net -intf_net stage_63_0_port2 [get_bd_intf_pins stage_63_0/port2] [get_bd_intf_pins stage_64_0/port3]
++  connect_bd_intf_net -intf_net stage_63_0_port4 [get_bd_intf_pins stage_4_0/port10] [get_bd_intf_pins stage_63_0/port4]
++  connect_bd_intf_net -intf_net stage_64_0_port1 [get_bd_intf_pins stage_64_0/port1] [get_bd_intf_pins stage_65_0/port0]
++  connect_bd_intf_net -intf_net stage_64_0_port2 [get_bd_intf_pins stage_64_0/port2] [get_bd_intf_pins stage_65_0/port3]
++  connect_bd_intf_net -intf_net stage_64_0_port4 [get_bd_intf_pins stage_1_0/port18] [get_bd_intf_pins stage_64_0/port4]
++  connect_bd_intf_net -intf_net stage_65_0_port1 [get_bd_intf_pins stage_65_0/port1] [get_bd_intf_pins stage_66_0/port0]
++  connect_bd_intf_net -intf_net stage_65_0_port2 [get_bd_intf_pins stage_65_0/port2] [get_bd_intf_pins stage_66_0/port3]
++  connect_bd_intf_net -intf_net stage_65_0_port5 [get_bd_intf_pins stage_65_0/port5] [get_bd_intf_pins stage_6_0/port26]
++  connect_bd_intf_net -intf_net stage_66_0_port1 [get_bd_intf_pins stage_66_0/port1] [get_bd_intf_pins stage_67_0/port0]
++  connect_bd_intf_net -intf_net stage_66_0_port2 [get_bd_intf_pins stage_66_0/port2] [get_bd_intf_pins stage_67_0/port3]
++  connect_bd_intf_net -intf_net stage_66_0_port5 [get_bd_intf_pins stage_66_0/port5] [get_bd_intf_pins stage_6_0/port28]
++  connect_bd_intf_net -intf_net stage_67_0_port1 [get_bd_intf_pins stage_67_0/port1] [get_bd_intf_pins stage_68_0/port0]
++  connect_bd_intf_net -intf_net stage_67_0_port2 [get_bd_intf_pins stage_67_0/port2] [get_bd_intf_pins stage_68_0/port3]
++  connect_bd_intf_net -intf_net stage_67_0_port5 [get_bd_intf_pins stage_67_0/port5] [get_bd_intf_pins stage_6_0/port30]
++  connect_bd_intf_net -intf_net stage_68_0_port1 [get_bd_intf_pins stage_68_0/port1] [get_bd_intf_pins stage_69_0/port0]
++  connect_bd_intf_net -intf_net stage_68_0_port2 [get_bd_intf_pins stage_68_0/port2] [get_bd_intf_pins stage_69_0/port3]
++  connect_bd_intf_net -intf_net stage_68_0_port5 [get_bd_intf_pins stage_68_0/port5] [get_bd_intf_pins stage_6_0/port32]
++  connect_bd_intf_net -intf_net stage_69_0_port1 [get_bd_intf_pins stage_69_0/port1] [get_bd_intf_pins stage_70_0/port0]
++  connect_bd_intf_net -intf_net stage_69_0_port2 [get_bd_intf_pins stage_69_0/port2] [get_bd_intf_pins stage_70_0/port3]
++  connect_bd_intf_net -intf_net stage_69_0_port5 [get_bd_intf_pins stage_69_0/port5] [get_bd_intf_pins stage_6_0/port34]
++  connect_bd_intf_net -intf_net stage_6_0_port1 [get_bd_intf_pins stage_18_0/port4] [get_bd_intf_pins stage_6_0/port1]
++  connect_bd_intf_net -intf_net stage_6_0_port3 [get_bd_intf_pins stage_19_0/port4] [get_bd_intf_pins stage_6_0/port3]
++  connect_bd_intf_net -intf_net stage_6_0_port5 [get_bd_intf_pins stage_20_0/port5] [get_bd_intf_pins stage_6_0/port5]
++  connect_bd_intf_net -intf_net stage_6_0_port7 [get_bd_intf_pins stage_32_0/port4] [get_bd_intf_pins stage_6_0/port7]
++  connect_bd_intf_net -intf_net stage_6_0_port9 [get_bd_intf_pins stage_33_0/port4] [get_bd_intf_pins stage_6_0/port9]
++  connect_bd_intf_net -intf_net stage_6_0_port11 [get_bd_intf_pins stage_34_0/port4] [get_bd_intf_pins stage_6_0/port11]
++  connect_bd_intf_net -intf_net stage_6_0_port13 [get_bd_intf_pins stage_35_0/port4] [get_bd_intf_pins stage_6_0/port13]
++  connect_bd_intf_net -intf_net stage_6_0_port15 [get_bd_intf_pins stage_36_0/port4] [get_bd_intf_pins stage_6_0/port15]
++  connect_bd_intf_net -intf_net stage_6_0_port17 [get_bd_intf_pins stage_37_0/port4] [get_bd_intf_pins stage_6_0/port17]
++  connect_bd_intf_net -intf_net stage_6_0_port19 [get_bd_intf_pins stage_38_0/port4] [get_bd_intf_pins stage_6_0/port19]
++  connect_bd_intf_net -intf_net stage_6_0_port21 [get_bd_intf_pins stage_39_0/port5] [get_bd_intf_pins stage_6_0/port21]
++  connect_bd_intf_net -intf_net stage_6_0_port23 [get_bd_intf_pins stage_48_0/port5] [get_bd_intf_pins stage_6_0/port23]
++  connect_bd_intf_net -intf_net stage_6_0_port25 [get_bd_intf_pins stage_50_0/port5] [get_bd_intf_pins stage_6_0/port25]
++  connect_bd_intf_net -intf_net stage_6_0_port27 [get_bd_intf_pins stage_66_0/port4] [get_bd_intf_pins stage_6_0/port27]
++  connect_bd_intf_net -intf_net stage_6_0_port29 [get_bd_intf_pins stage_67_0/port4] [get_bd_intf_pins stage_6_0/port29]
++  connect_bd_intf_net -intf_net stage_6_0_port31 [get_bd_intf_pins stage_68_0/port4] [get_bd_intf_pins stage_6_0/port31]
++  connect_bd_intf_net -intf_net stage_6_0_port33 [get_bd_intf_pins stage_69_0/port4] [get_bd_intf_pins stage_6_0/port33]
++  connect_bd_intf_net -intf_net stage_6_0_port35 [get_bd_intf_pins stage_6_0/port35] [get_bd_intf_pins stage_70_0/port5]
++  connect_bd_intf_net -intf_net stage_70_0_port1 [get_bd_intf_pins stage_70_0/port1] [get_bd_intf_pins stage_71_0/port0]
++  connect_bd_intf_net -intf_net stage_70_0_port2 [get_bd_intf_pins stage_70_0/port2] [get_bd_intf_pins stage_71_0/port3]
++  connect_bd_intf_net -intf_net stage_70_0_port4 [get_bd_intf_pins stage_5_0/port0] [get_bd_intf_pins stage_70_0/port4]
++  connect_bd_intf_net -intf_net stage_71_0_port1 [get_bd_intf_pins stage_71_0/port1] [get_bd_intf_pins stage_72_0/port0]
++  connect_bd_intf_net -intf_net stage_71_0_port2 [get_bd_intf_pins stage_71_0/port2] [get_bd_intf_pins stage_72_0/port3]
++  connect_bd_intf_net -intf_net stage_71_0_port5 [get_bd_intf_pins stage_5_0/port2] [get_bd_intf_pins stage_71_0/port5]
++  connect_bd_intf_net -intf_net stage_72_0_port1 [get_bd_intf_pins stage_72_0/port1] [get_bd_intf_pins stage_73_0/port0]
++  connect_bd_intf_net -intf_net stage_72_0_port2 [get_bd_intf_pins stage_72_0/port2] [get_bd_intf_pins stage_73_0/port3]
++  connect_bd_intf_net -intf_net stage_72_0_port5 [get_bd_intf_pins stage_5_0/port4] [get_bd_intf_pins stage_72_0/port5]
++  connect_bd_intf_net -intf_net stage_73_0_port1 [get_bd_intf_pins stage_73_0/port1] [get_bd_intf_pins stage_74_0/port0]
++  connect_bd_intf_net -intf_net stage_73_0_port2 [get_bd_intf_pins stage_73_0/port2] [get_bd_intf_pins stage_74_0/port3]
++  connect_bd_intf_net -intf_net stage_73_0_port5 [get_bd_intf_pins stage_5_0/port6] [get_bd_intf_pins stage_73_0/port5]
++  connect_bd_intf_net -intf_net stage_74_0_port1 [get_bd_intf_pins stage_74_0/port1] [get_bd_intf_pins stage_75_0/port0]
++  connect_bd_intf_net -intf_net stage_74_0_port2 [get_bd_intf_pins stage_74_0/port2] [get_bd_intf_pins stage_75_0/port3]
++  connect_bd_intf_net -intf_net stage_75_0_port1 [get_bd_intf_pins stage_75_0/port1] [get_bd_intf_pins stage_76_0/port0]
++  connect_bd_intf_net -intf_net stage_75_0_port2 [get_bd_intf_pins stage_75_0/port2] [get_bd_intf_pins stage_76_0/port3]
++  connect_bd_intf_net -intf_net stage_75_0_port4 [get_bd_intf_pins stage_5_0/port8] [get_bd_intf_pins stage_75_0/port4]
++  connect_bd_intf_net -intf_net stage_76_0_port1 [get_bd_intf_pins stage_76_0/port1] [get_bd_intf_pins stage_77_0/port0]
++  connect_bd_intf_net -intf_net stage_76_0_port2 [get_bd_intf_pins stage_76_0/port2] [get_bd_intf_pins stage_77_0/port3]
++  connect_bd_intf_net -intf_net stage_77_0_port1 [get_bd_intf_pins stage_77_0/port1] [get_bd_intf_pins stage_78_0/port0]
++  connect_bd_intf_net -intf_net stage_77_0_port2 [get_bd_intf_pins stage_77_0/port2] [get_bd_intf_pins stage_78_0/port3]
++  connect_bd_intf_net -intf_net stage_78_0_port1 [get_bd_intf_pins stage_78_0/port1] [get_bd_intf_pins stage_79_0/port0]
++  connect_bd_intf_net -intf_net stage_78_0_port2 [get_bd_intf_pins stage_78_0/port2] [get_bd_intf_pins stage_79_0/port2]
++  connect_bd_intf_net -intf_net stage_79_0_port1 [get_bd_intf_ports port1_0] [get_bd_intf_pins stage_79_0/port1]
++  connect_bd_intf_net -intf_net stage_7_0_port1 [get_bd_intf_pins stage_24_0/port5] [get_bd_intf_pins stage_7_0/port1]
++  connect_bd_intf_net -intf_net stage_7_0_port3 [get_bd_intf_pins stage_47_0/port5] [get_bd_intf_pins stage_7_0/port3]
++  connect_bd_intf_net -intf_net stage_8_0_port1 [get_bd_intf_pins stage_8_0/port1] [get_bd_intf_pins stage_9_0/port0]
++  connect_bd_intf_net -intf_net stage_8_0_port2 [get_bd_intf_pins stage_8_0/port2] [get_bd_intf_pins stage_9_0/port3]
++  connect_bd_intf_net -intf_net stage_9_0_port1 [get_bd_intf_pins stage_10_0/port0] [get_bd_intf_pins stage_9_0/port1]
++  connect_bd_intf_net -intf_net stage_9_0_port2 [get_bd_intf_pins stage_10_0/port3] [get_bd_intf_pins stage_9_0/port2]
++
++  # Create port connections
++  connect_bd_net -net ap_clk_0_1 [get_bd_ports ap_clk_0] [get_bd_pins stage_0_0/ap_clk] [get_bd_pins stage_10_0/ap_clk] [get_bd_pins stage_11_0/ap_clk] [get_bd_pins stage_12_0/ap_clk] [get_bd_pins stage_13_0/ap_clk] [get_bd_pins stage_14_0/ap_clk] [get_bd_pins stage_15_0/ap_clk] [get_bd_pins stage_16_0/ap_clk] [get_bd_pins stage_17_0/ap_clk] [get_bd_pins stage_18_0/ap_clk] [get_bd_pins stage_19_0/ap_clk] [get_bd_pins stage_1_0/ap_clk] [get_bd_pins stage_20_0/ap_clk] [get_bd_pins stage_21_0/ap_clk] [get_bd_pins stage_22_0/ap_clk] [get_bd_pins stage_23_0/ap_clk] [get_bd_pins stage_24_0/ap_clk] [get_bd_pins stage_25_0/ap_clk] [get_bd_pins stage_26_0/ap_clk] [get_bd_pins stage_27_0/ap_clk] [get_bd_pins stage_28_0/ap_clk] [get_bd_pins stage_29_0/ap_clk] [get_bd_pins stage_2_0/ap_clk] [get_bd_pins stage_30_0/ap_clk] [get_bd_pins stage_31_0/ap_clk] [get_bd_pins stage_32_0/ap_clk] [get_bd_pins stage_33_0/ap_clk] [get_bd_pins stage_34_0/ap_clk] [get_bd_pins stage_35_0/ap_clk] [get_bd_pins stage_36_0/ap_clk] [get_bd_pins stage_37_0/ap_clk] [get_bd_pins stage_38_0/ap_clk] [get_bd_pins stage_39_0/ap_clk] [get_bd_pins stage_3_0/ap_clk] [get_bd_pins stage_40_0/ap_clk] [get_bd_pins stage_41_0/ap_clk] [get_bd_pins stage_42_0/ap_clk] [get_bd_pins stage_43_0/ap_clk] [get_bd_pins stage_44_0/ap_clk] [get_bd_pins stage_45_0/ap_clk] [get_bd_pins stage_46_0/ap_clk] [get_bd_pins stage_47_0/ap_clk] [get_bd_pins stage_48_0/ap_clk] [get_bd_pins stage_49_0/ap_clk] [get_bd_pins stage_4_0/ap_clk] [get_bd_pins stage_50_0/ap_clk] [get_bd_pins stage_51_0/ap_clk] [get_bd_pins stage_52_0/ap_clk] [get_bd_pins stage_53_0/ap_clk] [get_bd_pins stage_54_0/ap_clk] [get_bd_pins stage_55_0/ap_clk] [get_bd_pins stage_56_0/ap_clk] [get_bd_pins stage_57_0/ap_clk] [get_bd_pins stage_58_0/ap_clk] [get_bd_pins stage_59_0/ap_clk] [get_bd_pins stage_5_0/ap_clk] [get_bd_pins stage_60_0/ap_clk] [get_bd_pins stage_61_0/ap_clk] [get_bd_pins stage_62_0/ap_clk] [get_bd_pins stage_63_0/ap_clk] [get_bd_pins stage_64_0/ap_clk] [get_bd_pins stage_65_0/ap_clk] [get_bd_pins stage_66_0/ap_clk] [get_bd_pins stage_67_0/ap_clk] [get_bd_pins stage_68_0/ap_clk] [get_bd_pins stage_69_0/ap_clk] [get_bd_pins stage_6_0/ap_clk] [get_bd_pins stage_70_0/ap_clk] [get_bd_pins stage_71_0/ap_clk] [get_bd_pins stage_72_0/ap_clk] [get_bd_pins stage_73_0/ap_clk] [get_bd_pins stage_74_0/ap_clk] [get_bd_pins stage_75_0/ap_clk] [get_bd_pins stage_76_0/ap_clk] [get_bd_pins stage_77_0/ap_clk] [get_bd_pins stage_78_0/ap_clk] [get_bd_pins stage_79_0/ap_clk] [get_bd_pins stage_7_0/ap_clk] [get_bd_pins stage_8_0/ap_clk] [get_bd_pins stage_9_0/ap_clk]
++  connect_bd_net -net ap_rst_n_0_1 [get_bd_ports ap_rst_n_0] [get_bd_pins stage_0_0/ap_rst_n] [get_bd_pins stage_10_0/ap_rst_n] [get_bd_pins stage_11_0/ap_rst_n] [get_bd_pins stage_12_0/ap_rst_n] [get_bd_pins stage_13_0/ap_rst_n] [get_bd_pins stage_14_0/ap_rst_n] [get_bd_pins stage_15_0/ap_rst_n] [get_bd_pins stage_16_0/ap_rst_n] [get_bd_pins stage_17_0/ap_rst_n] [get_bd_pins stage_18_0/ap_rst_n] [get_bd_pins stage_19_0/ap_rst_n] [get_bd_pins stage_1_0/ap_rst_n] [get_bd_pins stage_20_0/ap_rst_n] [get_bd_pins stage_21_0/ap_rst_n] [get_bd_pins stage_22_0/ap_rst_n] [get_bd_pins stage_23_0/ap_rst_n] [get_bd_pins stage_24_0/ap_rst_n] [get_bd_pins stage_25_0/ap_rst_n] [get_bd_pins stage_26_0/ap_rst_n] [get_bd_pins stage_27_0/ap_rst_n] [get_bd_pins stage_28_0/ap_rst_n] [get_bd_pins stage_29_0/ap_rst_n] [get_bd_pins stage_2_0/ap_rst_n] [get_bd_pins stage_30_0/ap_rst_n] [get_bd_pins stage_31_0/ap_rst_n] [get_bd_pins stage_32_0/ap_rst_n] [get_bd_pins stage_33_0/ap_rst_n] [get_bd_pins stage_34_0/ap_rst_n] [get_bd_pins stage_35_0/ap_rst_n] [get_bd_pins stage_36_0/ap_rst_n] [get_bd_pins stage_37_0/ap_rst_n] [get_bd_pins stage_38_0/ap_rst_n] [get_bd_pins stage_39_0/ap_rst_n] [get_bd_pins stage_3_0/ap_rst_n] [get_bd_pins stage_40_0/ap_rst_n] [get_bd_pins stage_41_0/ap_rst_n] [get_bd_pins stage_42_0/ap_rst_n] [get_bd_pins stage_43_0/ap_rst_n] [get_bd_pins stage_44_0/ap_rst_n] [get_bd_pins stage_45_0/ap_rst_n] [get_bd_pins stage_46_0/ap_rst_n] [get_bd_pins stage_47_0/ap_rst_n] [get_bd_pins stage_48_0/ap_rst_n] [get_bd_pins stage_49_0/ap_rst_n] [get_bd_pins stage_4_0/ap_rst_n] [get_bd_pins stage_50_0/ap_rst_n] [get_bd_pins stage_51_0/ap_rst_n] [get_bd_pins stage_52_0/ap_rst_n] [get_bd_pins stage_53_0/ap_rst_n] [get_bd_pins stage_54_0/ap_rst_n] [get_bd_pins stage_55_0/ap_rst_n] [get_bd_pins stage_56_0/ap_rst_n] [get_bd_pins stage_57_0/ap_rst_n] [get_bd_pins stage_58_0/ap_rst_n] [get_bd_pins stage_59_0/ap_rst_n] [get_bd_pins stage_5_0/ap_rst_n] [get_bd_pins stage_60_0/ap_rst_n] [get_bd_pins stage_61_0/ap_rst_n] [get_bd_pins stage_62_0/ap_rst_n] [get_bd_pins stage_63_0/ap_rst_n] [get_bd_pins stage_64_0/ap_rst_n] [get_bd_pins stage_65_0/ap_rst_n] [get_bd_pins stage_66_0/ap_rst_n] [get_bd_pins stage_67_0/ap_rst_n] [get_bd_pins stage_68_0/ap_rst_n] [get_bd_pins stage_69_0/ap_rst_n] [get_bd_pins stage_6_0/ap_rst_n] [get_bd_pins stage_70_0/ap_rst_n] [get_bd_pins stage_71_0/ap_rst_n] [get_bd_pins stage_72_0/ap_rst_n] [get_bd_pins stage_73_0/ap_rst_n] [get_bd_pins stage_74_0/ap_rst_n] [get_bd_pins stage_75_0/ap_rst_n] [get_bd_pins stage_76_0/ap_rst_n] [get_bd_pins stage_77_0/ap_rst_n] [get_bd_pins stage_78_0/ap_rst_n] [get_bd_pins stage_79_0/ap_rst_n] [get_bd_pins stage_7_0/ap_rst_n] [get_bd_pins stage_8_0/ap_rst_n] [get_bd_pins stage_9_0/ap_rst_n]
++
++  # Create address segments
++
++  # Perform GUI Layout
++  regenerate_bd_layout -layout_string {
++   "ActiveEmotionalView":"Default View",
++   "Default View_ScaleFactor":"0.176736",
++   "Default View_TopLeft":"-1352,-702",
++   "ExpandedHierarchyInLayout":"",
++   "guistr":"# # String gsaved with Nlview 7.0r4  2019-12-20 bk=1.5203 VDI=41 GEI=36 GUI=JA:10.0 TLS
++#  -string -flagsOSRD
++preplace port port0_0 -pg 1 -lvl 0 -x -580 -y -100 -defaultsOSRD
++preplace port port1_0 -pg 1 -lvl 10 -x 4160 -y 1720 -defaultsOSRD
++preplace port port-id_ap_clk_0 -pg 1 -lvl 0 -x -580 -y -80 -defaultsOSRD
++preplace port port-id_ap_rst_n_0 -pg 1 -lvl 0 -x -580 -y -60 -defaultsOSRD
++preplace inst stage_0_0 -pg 1 -lvl 9 -x 3630 -y 410 -defaultsOSRD
++preplace inst stage_10_0 -pg 1 -lvl 3 -x 700 -y -80 -defaultsOSRD
++preplace inst stage_11_0 -pg 1 -lvl 4 -x 1140 -y -70 -defaultsOSRD
++preplace inst stage_12_0 -pg 1 -lvl 5 -x 1520 -y -90 -defaultsOSRD
++preplace inst stage_13_0 -pg 1 -lvl 6 -x 2000 -y -60 -defaultsOSRD
++preplace inst stage_14_0 -pg 1 -lvl 7 -x 2380 -y -50 -defaultsOSRD
++preplace inst stage_15_0 -pg 1 -lvl 8 -x 2770 -y -30 -defaultsOSRD
++preplace inst stage_16_0 -pg 1 -lvl 1 -x -260 -y 140 -defaultsOSRD
++preplace inst stage_17_0 -pg 1 -lvl 2 -x 190 -y 140 -defaultsOSRD
++preplace inst stage_18_0 -pg 1 -lvl 3 -x 700 -y 120 -defaultsOSRD
++preplace inst stage_19_0 -pg 1 -lvl 4 -x 1140 -y 170 -defaultsOSRD
++preplace inst stage_1_0 -pg 1 -lvl 9 -x 3630 -y 170 -defaultsOSRD
++preplace inst stage_20_0 -pg 1 -lvl 5 -x 1520 -y 160 -defaultsOSRD
++preplace inst stage_21_0 -pg 1 -lvl 6 -x 2000 -y 150 -defaultsOSRD
++preplace inst stage_22_0 -pg 1 -lvl 7 -x 2380 -y 170 -defaultsOSRD
++preplace inst stage_23_0 -pg 1 -lvl 8 -x 2770 -y 170 -defaultsOSRD
++preplace inst stage_24_0 -pg 1 -lvl 1 -x -260 -y 340 -defaultsOSRD
++preplace inst stage_25_0 -pg 1 -lvl 2 -x 190 -y 360 -defaultsOSRD
++preplace inst stage_26_0 -pg 1 -lvl 3 -x 700 -y 330 -defaultsOSRD
++preplace inst stage_27_0 -pg 1 -lvl 4 -x 1140 -y 360 -defaultsOSRD
++preplace inst stage_28_0 -pg 1 -lvl 5 -x 1520 -y 380 -defaultsOSRD
++preplace inst stage_29_0 -pg 1 -lvl 6 -x 2000 -y 390 -defaultsOSRD
++preplace inst stage_2_0 -pg 1 -lvl 9 -x 3630 -y 600 -defaultsOSRD
++preplace inst stage_30_0 -pg 1 -lvl 7 -x 2380 -y 410 -defaultsOSRD
++preplace inst stage_31_0 -pg 1 -lvl 8 -x 2770 -y 400 -defaultsOSRD
++preplace inst stage_32_0 -pg 1 -lvl 1 -x -260 -y 610 -defaultsOSRD
++preplace inst stage_33_0 -pg 1 -lvl 2 -x 190 -y 610 -defaultsOSRD
++preplace inst stage_34_0 -pg 1 -lvl 3 -x 700 -y 620 -defaultsOSRD
++preplace inst stage_35_0 -pg 1 -lvl 4 -x 1140 -y 600 -defaultsOSRD
++preplace inst stage_36_0 -pg 1 -lvl 5 -x 1520 -y 600 -defaultsOSRD
++preplace inst stage_37_0 -pg 1 -lvl 6 -x 2000 -y 640 -defaultsOSRD
++preplace inst stage_38_0 -pg 1 -lvl 7 -x 2380 -y 610 -defaultsOSRD
++preplace inst stage_39_0 -pg 1 -lvl 8 -x 2770 -y 620 -defaultsOSRD
++preplace inst stage_3_0 -pg 1 -lvl 9 -x 3630 -y 790 -defaultsOSRD
++preplace inst stage_40_0 -pg 1 -lvl 1 -x -260 -y 820 -defaultsOSRD
++preplace inst stage_41_0 -pg 1 -lvl 2 -x 190 -y 820 -defaultsOSRD
++preplace inst stage_42_0 -pg 1 -lvl 3 -x 700 -y 830 -defaultsOSRD
++preplace inst stage_43_0 -pg 1 -lvl 4 -x 1140 -y 820 -defaultsOSRD
++preplace inst stage_44_0 -pg 1 -lvl 5 -x 1520 -y 820 -defaultsOSRD
++preplace inst stage_45_0 -pg 1 -lvl 6 -x 2000 -y 870 -defaultsOSRD
++preplace inst stage_46_0 -pg 1 -lvl 7 -x 2380 -y 850 -defaultsOSRD
++preplace inst stage_47_0 -pg 1 -lvl 8 -x 2770 -y 880 -defaultsOSRD
++preplace inst stage_48_0 -pg 1 -lvl 1 -x -260 -y 1060 -defaultsOSRD
++preplace inst stage_49_0 -pg 1 -lvl 2 -x 190 -y 1060 -defaultsOSRD
++preplace inst stage_4_0 -pg 1 -lvl 9 -x 3630 -y 990 -defaultsOSRD
++preplace inst stage_50_0 -pg 1 -lvl 3 -x 700 -y 1060 -defaultsOSRD
++preplace inst stage_51_0 -pg 1 -lvl 4 -x 1140 -y 1070 -defaultsOSRD
++preplace inst stage_52_0 -pg 1 -lvl 5 -x 1520 -y 1070 -defaultsOSRD
++preplace inst stage_53_0 -pg 1 -lvl 6 -x 2000 -y 1070 -defaultsOSRD
++preplace inst stage_54_0 -pg 1 -lvl 7 -x 2380 -y 1080 -defaultsOSRD
++preplace inst stage_55_0 -pg 1 -lvl 8 -x 2770 -y 1110 -defaultsOSRD
++preplace inst stage_56_0 -pg 1 -lvl 1 -x -260 -y 1290 -defaultsOSRD
++preplace inst stage_57_0 -pg 1 -lvl 2 -x 190 -y 1280 -defaultsOSRD
++preplace inst stage_58_0 -pg 1 -lvl 3 -x 700 -y 1310 -defaultsOSRD
++preplace inst stage_59_0 -pg 1 -lvl 4 -x 1140 -y 1310 -defaultsOSRD
++preplace inst stage_5_0 -pg 1 -lvl 9 -x 3630 -y 1220 -defaultsOSRD
++preplace inst stage_60_0 -pg 1 -lvl 5 -x 1520 -y 1310 -defaultsOSRD
++preplace inst stage_61_0 -pg 1 -lvl 6 -x 2000 -y 1280 -defaultsOSRD
++preplace inst stage_62_0 -pg 1 -lvl 7 -x 2380 -y 1320 -defaultsOSRD
++preplace inst stage_63_0 -pg 1 -lvl 8 -x 2770 -y 1330 -defaultsOSRD
++preplace inst stage_64_0 -pg 1 -lvl 1 -x -260 -y 1520 -defaultsOSRD
++preplace inst stage_65_0 -pg 1 -lvl 2 -x 190 -y 1510 -defaultsOSRD
++preplace inst stage_66_0 -pg 1 -lvl 3 -x 700 -y 1540 -defaultsOSRD
++preplace inst stage_67_0 -pg 1 -lvl 4 -x 1140 -y 1510 -defaultsOSRD
++preplace inst stage_68_0 -pg 1 -lvl 5 -x 1520 -y 1540 -defaultsOSRD
++preplace inst stage_69_0 -pg 1 -lvl 6 -x 2000 -y 1540 -defaultsOSRD
++preplace inst stage_6_0 -pg 1 -lvl 9 -x 3630 -y 1620 -defaultsOSRD
++preplace inst stage_70_0 -pg 1 -lvl 7 -x 2380 -y 1540 -defaultsOSRD
++preplace inst stage_71_0 -pg 1 -lvl 8 -x 2770 -y 1520 -defaultsOSRD
++preplace inst stage_72_0 -pg 1 -lvl 1 -x -260 -y 1800 -defaultsOSRD
++preplace inst stage_73_0 -pg 1 -lvl 2 -x 190 -y 1810 -defaultsOSRD
++preplace inst stage_74_0 -pg 1 -lvl 3 -x 700 -y 1810 -defaultsOSRD
++preplace inst stage_75_0 -pg 1 -lvl 4 -x 1140 -y 1780 -defaultsOSRD
++preplace inst stage_76_0 -pg 1 -lvl 5 -x 1520 -y 1760 -defaultsOSRD
++preplace inst stage_77_0 -pg 1 -lvl 6 -x 2000 -y 1740 -defaultsOSRD
++preplace inst stage_78_0 -pg 1 -lvl 7 -x 2380 -y 1740 -defaultsOSRD
++preplace inst stage_79_0 -pg 1 -lvl 8 -x 2770 -y 1720 -defaultsOSRD
++preplace inst stage_7_0 -pg 1 -lvl 9 -x 3630 -y 2060 -defaultsOSRD
++preplace inst stage_8_0 -pg 1 -lvl 1 -x -260 -y -80 -defaultsOSRD
++preplace inst stage_9_0 -pg 1 -lvl 2 -x 190 -y -120 -defaultsOSRD
++preplace netloc ap_clk_0_1 1 0 9 -550 -160 -10 -290 500 220 890 720 1300 480 1710 260 2190 50 2570 -150 3100
++preplace netloc ap_rst_n_0_1 1 0 9 -560 -170 -40 -330 350 230 900 460 1330 490 1670 30 2200 60 2550 -170 3120
++preplace netloc port0_0_1 1 0 1 N -100
++preplace netloc stage_0_0_port1 1 3 7 920 -670 N -670 N -670 N -670 N -670 N -670 4090
++preplace netloc stage_0_0_port3 1 0 10 -540 -700 N -700 N -700 N -700 N -700 N -700 N -700 N -700 N -700 4100
++preplace netloc stage_10_0_port1 1 3 1 840 -100n
++preplace netloc stage_10_0_port2 1 3 1 890 -80n
++preplace netloc stage_11_0_port1 1 4 1 1270 -120n
++preplace netloc stage_11_0_port2 1 4 1 1280 -100n
++preplace netloc stage_12_0_port1 1 5 1 1710 -100n
++preplace netloc stage_12_0_port2 1 5 1 1710 -80n
++preplace netloc stage_13_0_port1 1 6 1 2130 -80n
++preplace netloc stage_13_0_port2 1 6 1 2130 -60n
++preplace netloc stage_14_0_port1 1 7 1 N -70
++preplace netloc stage_14_0_port2 1 7 1 N -50
++preplace netloc stage_14_0_port4 1 7 2 2510 -130 3350
++preplace netloc stage_15_0_port1 1 0 9 -400 -360 N -360 N -360 N -360 N -360 N -360 N -360 N -360 2900
++preplace netloc stage_15_0_port2 1 0 9 -460 -500 N -500 N -500 N -500 N -500 N -500 N -500 N -500 3020
++preplace netloc stage_15_0_port5 1 8 1 3330 -10n
++preplace netloc stage_16_0_port1 1 1 1 -90 100n
++preplace netloc stage_16_0_port2 1 1 1 -80 120n
++preplace netloc stage_16_0_port5 1 1 8 -30 240 430 20 N 20 N 20 1680 -340 N -340 N -340 3390
++preplace netloc stage_17_0_port1 1 2 1 380 80n
++preplace netloc stage_17_0_port2 1 2 1 440 100n
++preplace netloc stage_17_0_port5 1 2 7 370 -330 N -330 N -330 N -330 N -330 N -330 3300
++preplace netloc stage_18_0_port1 1 3 1 880 100n
++preplace netloc stage_18_0_port2 1 3 1 870 120n
++preplace netloc stage_18_0_port5 1 3 6 850 -320 N -320 N -320 N -320 N -320 3280
++preplace netloc stage_19_0_port1 1 4 1 1270 120n
++preplace netloc stage_19_0_port2 1 4 1 1290 140n
++preplace netloc stage_19_0_port5 1 4 5 1280 40 N 40 N 40 2590 80 3220
++preplace netloc stage_1_0_port1 1 7 3 2590 -650 N -650 3780
++preplace netloc stage_1_0_port3 1 0 10 -490 -660 N -660 N -660 N -660 N -660 N -660 N -660 N -660 N -660 3860
++preplace netloc stage_1_0_port5 1 1 9 30 -690 N -690 N -690 N -690 N -690 N -690 N -690 N -690 4010
++preplace netloc stage_1_0_port7 1 5 5 1740 -640 N -640 N -640 N -640 3850
++preplace netloc stage_1_0_port9 1 1 9 40 -630 N -630 N -630 N -630 N -630 N -630 N -630 N -630 3840
++preplace netloc stage_1_0_port11 1 2 8 530 -620 N -620 N -620 N -620 N -620 N -620 N -620 3830
++preplace netloc stage_1_0_port13 1 0 10 -530 -610 N -610 N -610 N -610 N -610 N -610 N -610 N -610 N -610 3820
++preplace netloc stage_1_0_port15 1 1 9 0 -600 N -600 N -600 N -600 N -600 N -600 N -600 N -600 3810
++preplace netloc stage_1_0_port17 1 5 5 1730 -590 N -590 N -590 N -590 3800
++preplace netloc stage_1_0_port19 1 1 9 20 -580 N -580 N -580 N -580 N -580 N -580 N -580 N -580 3790
++preplace netloc stage_20_0_port1 1 5 1 1660 110n
++preplace netloc stage_20_0_port2 1 5 1 1680 130n
++preplace netloc stage_20_0_port4 1 5 4 1720 250 2130 80 2580 260 3020
++preplace netloc stage_21_0_port1 1 6 1 N 140
++preplace netloc stage_21_0_port2 1 6 1 N 160
++preplace netloc stage_22_0_port1 1 7 1 2510 140n
++preplace netloc stage_22_0_port2 1 7 1 2520 160n
++preplace netloc stage_23_0_port1 1 0 9 -420 -310 N -310 N -310 N -310 N -310 N -310 N -310 N -310 2980
++preplace netloc stage_23_0_port2 1 0 9 -410 -300 N -300 N -300 830 -290 N -290 1670 -300 N -300 N -300 2970
++preplace netloc stage_23_0_port4 1 8 1 3080 190n
++preplace netloc stage_24_0_port1 1 1 1 N 320
++preplace netloc stage_24_0_port2 1 1 1 N 340
++preplace netloc stage_24_0_port4 1 1 8 -130 -280 N -280 N -280 N -280 1690 -290 N -290 N -290 3380
++preplace netloc stage_25_0_port1 1 2 1 460 290n
++preplace netloc stage_25_0_port2 1 2 1 470 310n
++preplace netloc stage_25_0_port5 1 2 7 420 -270 N -270 N -270 1710 -280 N -280 N -280 3370
++preplace netloc stage_26_0_port1 1 3 1 870 310n
++preplace netloc stage_26_0_port2 1 3 1 870 330n
++preplace netloc stage_26_0_port5 1 3 6 870 500 N 500 N 500 2210 510 N 510 3230
++preplace netloc stage_27_0_port1 1 4 1 N 340
++preplace netloc stage_27_0_port2 1 4 1 N 360
++preplace netloc stage_27_0_port5 1 4 5 1270 270 N 270 2130 310 2590 500 3240
++preplace netloc stage_28_0_port1 1 5 1 1660 350n
++preplace netloc stage_28_0_port2 1 5 1 1700 370n
++preplace netloc stage_28_0_port5 1 5 4 1690 280 N 280 N 280 2970
++preplace netloc stage_29_0_port1 1 6 1 N 370
++preplace netloc stage_29_0_port2 1 6 1 N 390
++preplace netloc stage_29_0_port5 1 6 3 2160 300 N 300 3250
++preplace netloc stage_2_0_port1 1 3 7 940 -570 N -570 N -570 N -570 N -570 N -570 3930
++preplace netloc stage_2_0_port3 1 4 6 1350 -560 N -560 N -560 N -560 N -560 3920
++preplace netloc stage_2_0_port5 1 5 5 1750 -550 N -550 N -550 N -550 3910
++preplace netloc stage_2_0_port7 1 6 4 2230 -540 N -540 N -540 3900
++preplace netloc stage_2_0_port9 1 6 4 2220 -530 N -530 N -530 3890
++preplace netloc stage_30_0_port1 1 7 1 2510 360n
++preplace netloc stage_30_0_port2 1 7 1 2520 380n
++preplace netloc stage_30_0_port5 1 7 2 2580 520 3210
++preplace netloc stage_31_0_port1 1 0 9 -480 -320 N -320 N -320 840 -300 N -300 1660 -270 N -270 N -270 2950
++preplace netloc stage_31_0_port2 1 0 9 -450 -270 N -270 410 -260 N -260 N -260 N -260 N -260 N -260 2940
++preplace netloc stage_31_0_port5 1 8 1 2940 420n
++preplace netloc stage_32_0_port1 1 1 1 -60 570n
++preplace netloc stage_32_0_port2 1 1 1 -50 590n
++preplace netloc stage_32_0_port5 1 1 8 -100 -260 400 -250 N -250 N -250 N -250 N -250 N -250 3270
++preplace netloc stage_33_0_port1 1 2 1 490 580n
++preplace netloc stage_33_0_port2 1 2 1 490 600n
++preplace netloc stage_33_0_port5 1 2 7 450 -240 N -240 N -240 N -240 N -240 N -240 3260
++preplace netloc stage_34_0_port1 1 3 1 830 560n
++preplace netloc stage_34_0_port2 1 3 1 840 580n
++preplace netloc stage_34_0_port5 1 3 6 830 700 1280 280 1680 290 N 290 N 290 3170
++preplace netloc stage_35_0_port1 1 4 1 1270 560n
++preplace netloc stage_35_0_port2 1 4 1 1290 580n
++preplace netloc stage_35_0_port5 1 4 5 1290 700 1680 490 2150 270 N 270 3180
++preplace netloc stage_36_0_port1 1 5 1 1720 580n
++preplace netloc stage_36_0_port2 1 5 1 1700 600n
++preplace netloc stage_36_0_port5 1 5 4 1690 740 N 740 N 740 3110
++preplace netloc stage_37_0_port1 1 6 1 2150 570n
++preplace netloc stage_37_0_port2 1 6 1 2160 590n
++preplace netloc stage_37_0_port5 1 6 3 2150 710 2600 760 3090
++preplace netloc stage_38_0_port1 1 7 1 2510 580n
++preplace netloc stage_38_0_port2 1 7 1 2510 600n
++preplace netloc stage_38_0_port5 1 7 2 2610 770 3070
++preplace netloc stage_39_0_port1 1 0 9 -440 -240 N -240 410 -230 N -230 N -230 N -230 N -230 N -230 2930
++preplace netloc stage_39_0_port2 1 0 9 -430 -230 N -230 400 -220 N -220 N -220 N -220 N -220 N -220 2920
++preplace netloc stage_39_0_port4 1 8 1 3090 180n
++preplace netloc stage_3_0_port1 1 2 8 520 -520 N -520 N -520 N -520 N -520 N -520 N -520 3880
++preplace netloc stage_3_0_port3 1 3 7 930 -510 N -510 N -510 N -510 N -510 N -510 3870
++preplace netloc stage_40_0_port1 1 1 1 -60 780n
++preplace netloc stage_40_0_port2 1 1 1 -30 800n
++preplace netloc stage_40_0_port5 1 1 8 -70 -220 380 -210 N -210 N -210 N -210 N -210 N -210 3360
++preplace netloc stage_41_0_port1 1 2 1 510 790n
++preplace netloc stage_41_0_port2 1 2 1 510 810n
++preplace netloc stage_41_0_port5 1 2 7 480 -190 N -190 N -190 N -190 N -190 N -190 3290
++preplace netloc stage_42_0_port1 1 3 1 830 780n
++preplace netloc stage_42_0_port2 1 3 1 880 800n
++preplace netloc stage_42_0_port5 1 3 6 870 710 N 710 1680 750 N 750 N 750 3190
++preplace netloc stage_43_0_port1 1 4 1 1270 780n
++preplace netloc stage_43_0_port2 1 4 1 1320 800n
++preplace netloc stage_43_0_port5 1 4 5 1310 720 1660 760 2150 730 N 730 3200
++preplace netloc stage_44_0_port1 1 5 1 1680 800n
++preplace netloc stage_44_0_port2 1 5 1 1660 820n
++preplace netloc stage_44_0_port4 1 5 4 1690 770 2140 -140 N -140 3310
++preplace netloc stage_45_0_port1 1 6 1 2170 810n
++preplace netloc stage_45_0_port2 1 6 1 2180 830n
++preplace netloc stage_45_0_port5 1 6 3 2160 720 N 720 3110
++preplace netloc stage_46_0_port1 1 7 1 2610 830n
++preplace netloc stage_46_0_port2 1 7 1 2560 850n
++preplace netloc stage_46_0_port5 1 7 2 2510 780 3020
++preplace netloc stage_47_0_port1 1 0 9 -500 -250 N -250 390 -180 N -180 N -180 N -180 N -180 N -180 2910
++preplace netloc stage_47_0_port2 1 0 9 -470 10 N 10 N 10 910 50 N 50 N 50 2130 70 N 70 2900
++preplace netloc stage_47_0_port4 1 8 1 3060 900n
++preplace netloc stage_48_0_port1 1 1 1 0 1020n
++preplace netloc stage_48_0_port2 1 1 1 10 1040n
++preplace netloc stage_48_0_port4 1 1 8 -30 950 N 950 N 950 N 950 1660 1160 2170 1180 2560 990 3140
++preplace netloc stage_49_0_port1 1 2 1 510 1020n
++preplace netloc stage_49_0_port2 1 2 1 520 1040n
++preplace netloc stage_49_0_port5 1 2 7 340 1980 N 1980 N 1980 N 1980 N 1980 N 1980 3380
++preplace netloc stage_4_0_port1 1 7 3 2600 -410 N -410 3770
++preplace netloc stage_4_0_port3 1 4 6 1340 -490 N -490 N -490 N -490 N -490 3940
++preplace netloc stage_4_0_port5 1 1 9 40 1920 N 1920 N 1920 1360 1910 1710 1840 N 1840 N 1840 3030 1880 4010
++preplace netloc stage_4_0_port7 1 4 6 1360 1860 1650 1850 N 1850 N 1850 3000 1890 4000
++preplace netloc stage_4_0_port9 1 2 8 550 1930 N 1930 N 1930 N 1930 2170 1890 N 1890 2990 1900 3990
++preplace netloc stage_4_0_port11 1 0 10 -420 1960 N 1960 N 1960 N 1960 N 1960 N 1960 N 1960 N 1960 N 1960 4100
++preplace netloc stage_50_0_port1 1 3 1 870 1030n
++preplace netloc stage_50_0_port2 1 3 1 870 1050n
++preplace netloc stage_50_0_port4 1 3 6 860 60 N 60 1690 -160 N -160 N -160 3320
++preplace netloc stage_51_0_port1 1 4 1 1340 1030n
++preplace netloc stage_51_0_port2 1 4 1 1350 1050n
++preplace netloc stage_51_0_port5 1 4 5 1270 1170 N 1170 2140 960 2540 980 N
++preplace netloc stage_52_0_port1 1 5 1 1680 1040n
++preplace netloc stage_52_0_port2 1 5 1 1690 1060n
++preplace netloc stage_53_0_port1 1 6 1 2130 1040n
++preplace netloc stage_53_0_port2 1 6 1 2150 1060n
++preplace netloc stage_53_0_port4 1 6 1 2170 1080n
++preplace netloc stage_54_0_port1 1 7 1 2510 1070n
++preplace netloc stage_54_0_port2 1 7 1 2510 1090n
++preplace netloc stage_55_0_port1 1 0 9 -410 1400 N 1400 400 1410 920 1210 N 1210 1750 1190 2140 1200 N 1200 2910
++preplace netloc stage_55_0_port2 1 0 9 -400 1390 N 1390 440 1420 940 1220 N 1220 1660 1380 2240 1220 N 1220 2900
++preplace netloc stage_55_0_port4 1 8 1 3130 400n
++preplace netloc stage_56_0_port1 1 1 1 0 1250n
++preplace netloc stage_56_0_port2 1 1 1 10 1270n
++preplace netloc stage_57_0_port1 1 2 1 370 1260n
++preplace netloc stage_57_0_port2 1 2 1 360 1280n
++preplace netloc stage_57_0_port4 1 2 7 520 1210 840 1180 N 1180 N 1180 2160 980 2510 1000 N
++preplace netloc stage_58_0_port1 1 3 1 830 1280n
++preplace netloc stage_58_0_port2 1 3 1 850 1300n
++preplace netloc stage_59_0_port1 1 4 1 1270 1280n
++preplace netloc stage_59_0_port2 1 4 1 1280 1300n
++preplace netloc stage_5_0_port1 1 7 3 2620 1820 3010 1910 3810
++preplace netloc stage_5_0_port3 1 0 10 -510 960 N 960 N 960 N 960 N 960 1680 970 N 970 2520 1010 3140 1340 3780
++preplace netloc stage_5_0_port5 1 1 9 50 1370 510 1190 N 1190 N 1190 1680 1420 N 1420 N 1420 3200 1370 3770
++preplace netloc stage_5_0_port7 1 2 8 560 1970 N 1970 N 1970 N 1970 N 1970 N 1970 N 1970 4090
++preplace netloc stage_5_0_port9 1 4 6 1370 1890 N 1890 2140 1910 N 1910 2950 1930 3800
++preplace netloc stage_60_0_port1 1 5 1 1730 1250n
++preplace netloc stage_60_0_port2 1 5 1 1750 1270n
++preplace netloc stage_61_0_port1 1 6 1 2160 1270n
++preplace netloc stage_61_0_port2 1 6 1 2140 1290n
++preplace netloc stage_62_0_port1 1 7 1 2590 1300n
++preplace netloc stage_62_0_port2 1 7 1 2620 1320n
++preplace netloc stage_63_0_port1 1 0 9 -400 1410 N 1410 360 1430 950 1410 N 1410 N 1410 2130 1230 N 1230 2900
++preplace netloc stage_63_0_port2 1 0 9 -520 940 N 940 N 940 N 940 N 940 1690 980 2130 950 2530 1020 2920
++preplace netloc stage_63_0_port4 1 8 1 2930 1020n
++preplace netloc stage_64_0_port1 1 1 1 0 1470n
++preplace netloc stage_64_0_port2 1 1 1 10 1490n
++preplace netloc stage_64_0_port4 1 1 8 -20 -210 360 -200 N -200 N -200 N -200 N -200 N -200 3340
++preplace netloc stage_65_0_port1 1 2 1 330 1490n
++preplace netloc stage_65_0_port2 1 2 1 330 1510n
++preplace netloc stage_65_0_port5 1 2 7 330 1940 N 1940 N 1940 N 1940 2230 1950 N 1950 2920
++preplace netloc stage_66_0_port1 1 3 1 940 1470n
++preplace netloc stage_66_0_port2 1 3 1 950 1490n
++preplace netloc stage_66_0_port5 1 3 6 840 1870 N 1870 N 1870 N 1870 N 1870 2990
++preplace netloc stage_67_0_port1 1 4 1 1270 1490n
++preplace netloc stage_67_0_port2 1 4 1 1270 1510n
++preplace netloc stage_67_0_port5 1 4 5 1270 1640 N 1640 N 1640 2610 1630 3050
++preplace netloc stage_68_0_port1 1 5 1 1730 1500n
++preplace netloc stage_68_0_port2 1 5 1 1750 1520n
++preplace netloc stage_68_0_port5 1 5 4 1660 1860 N 1860 N 1860 3280
++preplace netloc stage_69_0_port1 1 6 1 2220 1500n
++preplace netloc stage_69_0_port2 1 6 1 2230 1520n
++preplace netloc stage_69_0_port5 1 6 3 2130 1830 N 1830 3340
++preplace netloc stage_6_0_port1 1 2 8 560 -480 N -480 N -480 N -480 N -480 N -480 N -480 4080
++preplace netloc stage_6_0_port3 1 3 7 960 -470 N -470 N -470 N -470 N -470 N -470 4070
++preplace netloc stage_6_0_port5 1 4 6 1370 -460 N -460 N -460 N -460 N -460 4060
++preplace netloc stage_6_0_port7 1 0 10 -510 -450 N -450 N -450 N -450 N -450 N -450 N -450 N -450 N -450 4050
++preplace netloc stage_6_0_port9 1 1 9 50 -440 N -440 N -440 N -440 N -440 N -440 N -440 N -440 4040
++preplace netloc stage_6_0_port11 1 2 8 550 -430 N -430 N -430 N -430 N -430 N -430 N -430 4030
++preplace netloc stage_6_0_port13 1 3 7 950 -420 N -420 N -420 N -420 N -420 N -420 4020
++preplace netloc stage_6_0_port15 1 4 6 1360 -400 N -400 N -400 N -400 N -400 3980
++preplace netloc stage_6_0_port17 1 5 5 1760 -390 N -390 N -390 N -390 3970
++preplace netloc stage_6_0_port19 1 6 4 2240 -380 N -380 N -380 3960
++preplace netloc stage_6_0_port21 1 7 3 2610 -370 N -370 3950
++preplace netloc stage_6_0_port23 1 0 10 -400 1190 N 1190 360 1200 N 1200 N 1200 1690 1370 2230 1210 N 1210 3130 1360 3780
++preplace netloc stage_6_0_port25 1 2 8 530 2150 N 2150 N 2150 N 2150 N 2150 N 2150 N 2150 4030
++preplace netloc stage_6_0_port27 1 2 8 540 2160 N 2160 N 2160 N 2160 N 2160 N 2160 N 2160 4020
++preplace netloc stage_6_0_port29 1 3 7 960 1400 N 1400 N 1400 2150 1410 2610 1240 2950 1350 3790
++preplace netloc stage_6_0_port31 1 4 6 1350 1900 N 1900 N 1900 N 1900 2980 1920 3770
++preplace netloc stage_6_0_port33 1 5 5 1760 1920 2200 1930 N 1930 2940 1940 3790
++preplace netloc stage_6_0_port35 1 6 4 2240 1940 N 1940 2930 1950 3780
++preplace netloc stage_70_0_port1 1 7 1 2600 1480n
++preplace netloc stage_70_0_port2 1 7 1 2560 1500n
++preplace netloc stage_70_0_port4 1 7 2 2510 1620 3150
++preplace netloc stage_71_0_port1 1 0 9 -410 1990 N 1990 N 1990 N 1990 N 1990 N 1990 N 1990 N 1990 2910
++preplace netloc stage_71_0_port2 1 0 9 -400 2000 N 2000 N 2000 N 2000 N 2000 N 2000 N 2000 N 2000 2900
++preplace netloc stage_71_0_port5 1 8 1 3160 1180n
++preplace netloc stage_72_0_port1 1 1 1 30 1770n
++preplace netloc stage_72_0_port2 1 1 1 30 1790n
++preplace netloc stage_72_0_port5 1 1 8 -120 1950 N 1950 N 1950 N 1950 N 1950 2220 1920 N 1920 2970
++preplace netloc stage_73_0_port1 1 2 1 510 1770n
++preplace netloc stage_73_0_port2 1 2 1 520 1790n
++preplace netloc stage_73_0_port5 1 2 7 320 1910 N 1910 1290 1880 N 1880 N 1880 N 1880 2980
++preplace netloc stage_74_0_port1 1 3 1 950 1750n
++preplace netloc stage_74_0_port2 1 3 1 960 1770n
++preplace netloc stage_75_0_port1 1 4 1 1340 1720n
++preplace netloc stage_75_0_port2 1 4 1 1280 1740n
++preplace netloc stage_75_0_port4 1 4 5 1270 1650 N 1650 N 1650 2510 1810 2960
++preplace netloc stage_76_0_port1 1 5 1 1680 1710n
++preplace netloc stage_76_0_port2 1 5 1 1650 1730n
++preplace netloc stage_77_0_port1 1 6 1 2140 1710n
++preplace netloc stage_77_0_port2 1 6 1 2160 1730n
++preplace netloc stage_78_0_port1 1 7 1 2560 1690n
++preplace netloc stage_78_0_port2 1 7 1 2520 1710n
++preplace netloc stage_79_0_port1 1 8 2 3040J 1870 4130J
++preplace netloc stage_7_0_port1 1 0 10 -520 -680 N -680 N -680 N -680 N -680 N -680 N -680 N -680 N -680 4120
++preplace netloc stage_7_0_port3 1 7 3 2620 -350 N -350 4110
++preplace netloc stage_8_0_port1 1 1 1 -120 -150n
++preplace netloc stage_8_0_port2 1 1 1 -110 -130n
++preplace netloc stage_9_0_port1 1 2 1 510 -130n
++preplace netloc stage_9_0_port2 1 2 1 490 -110n
++levelinfo -pg 1 -580 -260 190 700 1140 1520 2000 2380 2770 3630 4160
++pagesize -pg 1 -db -bbox -sgen -710 -1570 4270 3350
++"
++}
++
++  # Restore current instance
++  current_bd_instance $oldCurInst
++
++  validate_bd_design
++  save_bd_design
++}
++# End of create_root_design()
++
++
++##################################################################
++# MAIN FLOW
++##################################################################
++
++create_root_design ""
++
++
+diff --git a/plugin/p2p/build_box_250mhz.tcl b/plugin/p2p/build_box_250mhz.tcl
+index e4ed8f0..57feef0 100644
+--- a/plugin/p2p/build_box_250mhz.tcl
++++ b/plugin/p2p/build_box_250mhz.tcl
+@@ -18,4 +18,20 @@
+ if {$num_qdma > 1} {
+     source box_250mhz/box_250mhz_axis_switch.tcl
+ }
++
++set folder_path "/home/simo/Desktop/Tesi/open-nic_Nanotube/open-nic-shell/plugin/p2p/box_250mhz/NK_open_nic" ;
++if {[file exists $folder_path]} {
++    foreach file [glob -nocomplain -directory $folder_path *.*] {
++        add_files $file
++    }
++    puts "Added all files from $folder_path to the sources."
++} else {
++    puts "Warning: Folder $folder_path does not exist."
++}
++import_files -norecurse /home/simo/Desktop/Tesi/open-nic_Nanotube/open-nic-shell/plugin/p2p/box_250mhz/NK_open_nic/hdl/NK_open_nic_wrapper.v
++set_property  ip_repo_paths  /home/simo/Desktop/Tesi/nanotube_2022.1/HLS_build/katran_open_nic [current_project]
++update_ip_catalog
++source box_250mhz/build_NK_block_design.tcl
++
++
+ read_verilog -quiet -sv p2p_250mhz.sv
+diff --git a/plugin/p2p/p2p_250mhz.sv b/plugin/p2p/p2p_250mhz.sv
+index a1678f0..45280f5 100644
+--- a/plugin/p2p/p2p_250mhz.sv
++++ b/plugin/p2p/p2p_250mhz.sv
+@@ -249,55 +249,51 @@ module p2p_250mhz #(
+         .s_axi_ctrl_rresp    (s_axil_rresp[`getvec(2, 2*i)])
+       );
+     end
+-    else begin
+-      wire [47:0] axis_qdma_h2c_tuser;
+-
+-      assign axis_qdma_h2c_tuser[0+:16]                       = s_axis_qdma_h2c_tuser_size[`getvec(16, i)];
+-      assign axis_qdma_h2c_tuser[16+:16]                      = s_axis_qdma_h2c_tuser_src[`getvec(16, i)];
+-      assign axis_qdma_h2c_tuser[32+:16]                      = s_axis_qdma_h2c_tuser_dst[`getvec(16, i)];
+-
+-      assign m_axis_qdma_c2h_tuser_size[`getvec(16, i)]       = axis_qdma_c2h_tuser[0+:16];
+-      assign m_axis_qdma_c2h_tuser_src[`getvec(16, i)]        = axis_qdma_c2h_tuser[16+:16];
+-      assign m_axis_qdma_c2h_tuser_dst[`getvec(16, i)]        = 16'h1 << i;
+-
+-      axi_stream_pipeline tx_ppl_inst (
+-        .s_axis_tvalid (s_axis_qdma_h2c_tvalid[i]),
+-        .s_axis_tdata  (s_axis_qdma_h2c_tdata[`getvec(512, i)]),
+-        .s_axis_tkeep  (s_axis_qdma_h2c_tkeep[`getvec(64, i)]),
+-        .s_axis_tlast  (s_axis_qdma_h2c_tlast[i]),
+-        .s_axis_tuser  (axis_qdma_h2c_tuser),
+-        .s_axis_tready (s_axis_qdma_h2c_tready[i]),
+-
+-        .m_axis_tvalid (m_axis_adap_tx_250mhz_tvalid[i]),
+-        .m_axis_tdata  (m_axis_adap_tx_250mhz_tdata[`getvec(512, i)]),
+-        .m_axis_tkeep  (m_axis_adap_tx_250mhz_tkeep[`getvec(64, i)]),
+-        .m_axis_tlast  (m_axis_adap_tx_250mhz_tlast[i]),
+-        .m_axis_tuser  (axis_adap_tx_250mhz_tuser),
+-        .m_axis_tready (m_axis_adap_tx_250mhz_tready[i]),
+-
+-        .aclk          (axis_aclk),
+-        .aresetn       (axil_aresetn)
+-      );
+-
+-      axi_stream_pipeline rx_ppl_inst (
+-        .s_axis_tvalid (s_axis_adap_rx_250mhz_tvalid[i]),
+-        .s_axis_tdata  (s_axis_adap_rx_250mhz_tdata[`getvec(512, i)]),
+-        .s_axis_tkeep  (s_axis_adap_rx_250mhz_tkeep[`getvec(64, i)]),
+-        .s_axis_tlast  (s_axis_adap_rx_250mhz_tlast[i]),
+-        .s_axis_tuser  (axis_adap_rx_250mhz_tuser),
+-        .s_axis_tready (s_axis_adap_rx_250mhz_tready[i]),
+-
+-        .m_axis_tvalid (m_axis_qdma_c2h_tvalid[i]),
+-        .m_axis_tdata  (m_axis_qdma_c2h_tdata[`getvec(512, i)]),
+-        .m_axis_tkeep  (m_axis_qdma_c2h_tkeep[`getvec(64, i)]),
+-        .m_axis_tlast  (m_axis_qdma_c2h_tlast[i]),
+-        .m_axis_tuser  (axis_qdma_c2h_tuser),
+-        .m_axis_tready (m_axis_qdma_c2h_tready[i]),
+-
+-        .aclk          (axis_aclk),
+-        .aresetn       (axil_aresetn)
+-      );
+-    end
++    else
++        wire [511:0] axis_adap_rx_tdata;
++        wire [63:0] axis_adap_rx_tkeep;
++        wire         axis_adap_rx_tvalid;
++        wire         axis_adap_rx_tlast;
++        wire         axis_adap_rx_tready;
++    
++        wire [511:0] axis_adap_tx_tdata;
++        wire [63:0]  axis_adap_tx_tkeep;
++        wire         axis_adap_tx_tvalid;
++        wire         axis_adap_tx_tlast;
++        wire         axis_adap_tx_tready;
++    
++        // Assign inputs from s_axis_adap_rx_250mhz to the wrapper
++        assign axis_adap_rx_tdata  = s_axis_adap_rx_250mhz_tdata[`getvec(512, i)];
++        assign axis_adap_rx_tkeep  = s_axis_adap_rx_250mhz_tkeep[`getvec(64, i)];
++        assign axis_adap_rx_tvalid = s_axis_adap_rx_250mhz_tvalid[i];
++        assign axis_adap_rx_tlast  = s_axis_adap_rx_250mhz_tlast[i];
++        assign s_axis_adap_rx_250mhz_tready[i] = axis_adap_rx_tready;
++    
++        // Connect outputs from the wrapper to m_axis_adap_tx_250mhz
++        assign m_axis_adap_tx_250mhz_tdata[`getvec(512, i)] = axis_adap_tx_tdata;
++        assign m_axis_adap_tx_250mhz_tkeep[`getvec(64, i)]  = axis_adap_tx_tkeep;
++        assign m_axis_adap_tx_250mhz_tvalid[i]              = axis_adap_tx_tvalid;
++        assign m_axis_adap_tx_250mhz_tlast[i]               = axis_adap_tx_tlast;
++        assign axis_adap_tx_tready                          = m_axis_adap_tx_250mhz_tready[i];
++    
++        // Instantiate NK_open_nic_wrapper
++        NK_open_nic_wrapper nk_wrapper_inst (
++          .ap_clk_0(axis_aclk),
++          .ap_rst_n_0(axil_aresetn),
++          
++          .port0_0_tdata(axis_adap_rx_tdata),
++          .port0_0_tkeep(axis_adap_rx_tkeep),
++          .port0_0_tlast(axis_adap_rx_tlast),
++          .port0_0_tvalid(axis_adap_rx_tvalid),
++          .port0_0_tready(axis_adap_rx_tready),
++          
++          .port1_0_tdata(axis_adap_tx_tdata),
++          .port1_0_tkeep(axis_adap_tx_tkeep),
++          .port1_0_tlast(axis_adap_tx_tlast),
++          .port1_0_tvalid(axis_adap_tx_tvalid),
++          .port1_0_tready(axis_adap_tx_tready)
++        );
++        
+   end
+   endgenerate
+ 
+diff --git a/script/build.tcl b/script/build.tcl
+index 6215589..4a663c4 100644
+--- a/script/build.tcl
++++ b/script/build.tcl
+@@ -63,6 +63,11 @@ set plugin_dir ${root_dir}/plugin
+ set script_dir ${root_dir}/script
+ set src_dir ${root_dir}/src
+ 
++add_files /home/simo/Desktop/Tesi/open-nic_Nanotube/open-nic-shell/src/open_nic_shell_macros.vh
++set_property is_global_include true [get_files /home/simo/Desktop/Tesi/open-nic_Nanotube/open-nic-shell/src/open_nic_shell_macros.vh]
++puts "Added file /home/simo/Desktop/Tesi/open-nic_Nanotube/open-nic-shell/src/open_nic_shell_macros.vh"
++
++
+ # Build options
+ #   board_repo             Path to the Xilinx board store repository
+ #   board                  Board name
+@@ -101,12 +106,12 @@ array set build_options {
+     -rebuild     0
+     -jobs        8
+     -synth_ip    1
+-    -impl        0
+-    -post_impl   0
++    -impl        1
++    -post_impl   1
+     -user_plugin ""
+     -bitstream_userid  "0xDEADC0DE"
+     -bitstream_usr_access "0x66669999"
+-    -sim  0
++    -sim  1
+ }
+ set build_options(-user_plugin) ${plugin_dir}/p2p
+ 
+@@ -114,7 +119,7 @@ array set design_params {
+     -build_timestamp  0
+     -min_pkt_len      64
+     -max_pkt_len      1518
+-    -use_phys_func    1
++    -use_phys_func    0
+     -num_phys_func    1
+     -num_qdma         1
+     -num_queue        512
+@@ -236,6 +241,9 @@ foreach name [glob -tails -directory ${src_dir} -type d *] {
+     }
+ }
+ 
++set_property  ip_repo_paths  {/home/simo/Desktop/Tesi/nanotube_2022.1/HLS_build/katran_open_nic /home/simo/Desktop/Tesi/nanotube_2022.1/Nanotube_katran_IP_OpenNIC /home/simo/Desktop/Tesi/open-nic_Nanotube/open-nic-shell/plugin/p2p/box_250mhz/NK_open_nic/ip} [current_project]
++update_ip_catalog -rebuild -scan_changes
++
+ # Create/open Manage IP project
+ set ip_build_dir ${build_dir}/vivado_ip
+ if {![file exists ${ip_build_dir}/manage_ip/]} {
+diff --git a/src/open_nic_shell_macros.vh b/src/open_nic_shell_macros.vh
+old mode 100644
+new mode 100755
+index faeeed8..c4b936e
+--- a/src/open_nic_shell_macros.vh
++++ b/src/open_nic_shell_macros.vh
+@@ -21,4 +21,13 @@
+ `define getbit(width, index, offset)    ((index)*(width) + (offset))
+ `define getvec(width, index)            ((index)*(width)) +: (width)
+ 
++`define __au250__
++`define __synthesis__
++`undef __au55c__
++`undef __au50__
++`undef __au55n__
++`undef __au200__
++`undef __au280__
++`undef __au45n__
++
+ `endif
