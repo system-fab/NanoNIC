@@ -3,8 +3,8 @@
 
 #define SEC(NAME) __attribute__((section(NAME), used))
 
-SEC("xdp_patch_ports")
-int filter(struct xdp_md *ctx)
+SEC("xdp_pass_all")
+int xdp_pass(struct xdp_md *ctx)
 {
     return XDP_PASS;
 }

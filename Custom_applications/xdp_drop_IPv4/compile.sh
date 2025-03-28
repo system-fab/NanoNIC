@@ -2,7 +2,7 @@ export PATH=/home/simo/Desktop/Tesi/nanotube-llvm/build/bin:$PATH
 export LLVM_CONFIG=/home/simo/Desktop/Tesi/nanotube-llvm/build/bin/llvm-config
 export LD_LIBRARY_PATH=/home/simo/Desktop/Tesi/nanotube-llvm/build/lib:$LD_LIBRARY_PATH
 
-name_file=xdp_pass_all
+name_file=xdp_drop_IPv4
 
 name_bus=open_nic
 

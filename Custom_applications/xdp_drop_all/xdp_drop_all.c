@@ -3,7 +3,7 @@
 
 #define SEC(NAME) __attribute__((section(NAME), used))
 
-SEC("xdp_patch_ports")
+SEC("xdp_drop_all")
 int filter(struct xdp_md *ctx)
 {
     return XDP_DROP;

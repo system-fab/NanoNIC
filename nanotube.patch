@@ -31,7 +31,7 @@ index 36314b0..105e091 100644
    }
  
 diff --git a/back_end/bus_type.cpp b/back_end/bus_type.cpp
-index d5a87d4..29ad338 100644
+index d5a87d4..5ef56a4 100644
 --- a/back_end/bus_type.cpp
 +++ b/back_end/bus_type.cpp
 @@ -16,6 +16,7 @@
@@ -42,15 +42,7 @@ index d5a87d4..29ad338 100644
  
  #include "llvm/Support/CommandLine.h"
  
-@@ -27,13 +28,14 @@ using namespace nanotube;
- 
- static llvm::cl::opt<std::string>
- opt_bus("bus", llvm::cl::desc("Which bus format to use"),
--        llvm::cl::init("sb"));
-+        llvm::cl::init("open_nic"));
- 
- std::unordered_map<std::string, enum nanotube_bus_id_t> bus_types = {
-   // Recommended names.
+@@ -34,6 +35,7 @@ std::unordered_map<std::string, enum nanotube_bus_id_t> bus_types = {
    { "sb", NANOTUBE_BUS_ID_SB },
    { "shb", NANOTUBE_BUS_ID_SHB },
    { "x3rx", NANOTUBE_BUS_ID_X3RX },
@@ -137,17 +129,22 @@ index 65c6012..82f1c47 100644
  /* The following attributes control how the channel is represented by
 diff --git a/include/nanotube_packet_metadata_open_nic.h b/include/nanotube_packet_metadata_open_nic.h
 new file mode 100644
-index 0000000..287a986
+index 0000000..eb501f3
 --- /dev/null
 +++ b/include/nanotube_packet_metadata_open_nic.h
-@@ -0,0 +1,18 @@
+@@ -0,0 +1,23 @@
 +/**************************************************************************\
 +*//*! \file nanotube_packet_metadata_open_nic.h
-+** \author  Simone Mannarino 
-+**  \brief  Nanotube open-nic bus metadata.
++** \author  Simone Mannarino
++**  \brief  Nanotube OpenNIC bus metadata.
 +**   \date  
 +*//*
 +\**************************************************************************/
++
++/**************************************************************************
++** Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
++** SPDX-License-Identifier: MIT
++**************************************************************************/
 +
 +#ifndef NANOTUBE_PACKET_METADATA_OPEN_NIC_H
 +#define NANOTUBE_PACKET_METADATA_OPEN_NIC_H
@@ -156,10 +153,9 @@ index 0000000..287a986
 +
 +extern "C" void
 +nanotube_packet_set_port_open_nic(nanotube_packet_t* packet,
-+                            nanotube_packet_port_t port);
++                              nanotube_packet_port_t port);
 +
 +#endif // NANOTUBE_PACKET_METADATA_OPEN_NIC_H
-\ No newline at end of file
 diff --git a/include/nanotube_packet_taps_open_nic.h b/include/nanotube_packet_taps_open_nic.h
 new file mode 100644
 index 0000000..589db7d
@@ -354,10 +350,10 @@ index 0000000..589db7d
 \ No newline at end of file
 diff --git a/include/open_nic_bus.hpp b/include/open_nic_bus.hpp
 new file mode 100644
-index 0000000..cc4d1ba
+index 0000000..36f6959
 --- /dev/null
 +++ b/include/open_nic_bus.hpp
-@@ -0,0 +1,247 @@
+@@ -0,0 +1,251 @@
 +/**************************************************************************\
 +*//*! \file open_nic_bus.hpp
 +** \author  Simone Mannarino 
@@ -381,8 +377,8 @@ index 0000000..cc4d1ba
 +  /* OPEN_NIC_DATA AXI-S is 512 bits, so 64 bytes */
 +  static const int log_data_bytes = 6;
 +  static const int data_bytes = (1<<log_data_bytes);
-+  /* OPEN_NIC uses 64 bits for TUSER, so 8 bytes */
-+  static const int sideband_bytes = 8;
++  /* OPEN_NIC uses 48 bits for TUSER, so 6 bytes */
++  static const int sideband_bytes = 6;
 +  // Tkeep is 64 bits, so 8 bytes
 +  // Tstrb is 64 bits, so 8 bytes
 +  // Tlast is 1 bit, so 1 byte
@@ -403,7 +399,6 @@ index 0000000..cc4d1ba
 +   * [0 - 15] TUSER_SIZE - size of the packet
 +   * [16 - 31] TUSER_SRC - source of the packet
 +   * [32 - 47] TUSER_DST - destination of the packet
-+   * [48 - 63] TUSER_USER - side-band user data
 +   */
 +
 +  static const unsigned TUSER_SIZE_BYTE_INDEX = 0;
@@ -412,11 +407,9 @@ index 0000000..cc4d1ba
 +  static const unsigned TUSER_SRC_BIT_MASK = 0xFFFF;
 +  static const unsigned TUSER_DST_BYTE_INDEX = 4;
 +  static const unsigned TUSER_DST_BIT_MASK = 0xFFFF;
-+  static const unsigned TUSER_USER_BYTE_INDEX = 6;
-+  static const unsigned TUSER_USER_BIT_MASK = 0xFFFF;
 +
 +  static const unsigned TKEEP_BYTE_INDEX = 0;
-+  static const unsigned TKEEP_BIT_MASK = 0xFFFF;
++  static const unsigned long long TKEEP_BIT_MASK = 0xFFFFFFFFFFFFFFFF;
 +  static const unsigned TLAST_BYTE_INDEX = sideband_signals_bytes-1;
 +  static const unsigned TLAST_BIT_MASK = 0x1;
 +
@@ -434,12 +427,8 @@ index 0000000..cc4d1ba
 +    return *((unsigned short int*)&sideband[TUSER_DST_BYTE_INDEX]) & TUSER_DST_BIT_MASK;
 +  }
 +
-+  static inline unsigned short int get_sideband_tuser_user(const byte_t *sideband) {
-+    return *((unsigned short int*)&sideband[TUSER_USER_BYTE_INDEX]) & TUSER_USER_BIT_MASK;
-+  }
-+
-+  static inline unsigned short int get_sideband_signal_tkeep(const byte_t *sideband_signal) {
-+    return *((unsigned short int*)&sideband_signal[TKEEP_BYTE_INDEX]) & TKEEP_BIT_MASK;
++  static inline unsigned long long get_sideband_signal_tkeep(const byte_t *sideband_signal) {
++    return *((unsigned long long*)&sideband_signal[TKEEP_BYTE_INDEX]) & TKEEP_BIT_MASK;
 +  }
 +
 +  static inline unsigned short int get_sideband_signal_tlast(const byte_t *sideband_signal) {
@@ -460,17 +449,25 @@ index 0000000..cc4d1ba
 +    *((unsigned short int*)&sideband[TUSER_DST_BYTE_INDEX]) = tuser_dst & TUSER_DST_BIT_MASK;
 +  }
 +
-+  static inline void set_tuser_user(byte_t *sideband, unsigned short int tuser_user) {
-+    *((unsigned short int*)&sideband[TUSER_USER_BYTE_INDEX]) = tuser_user & TUSER_USER_BIT_MASK;
++  static inline void set_tkeep(byte_t *sideband_signal, unsigned short int tkeep_bits_enabled) {
++    // Create a bitmask with `tkeep` bits set to 1
++    unsigned long long value = (tkeep_bits_enabled < 64 ) ? ((1ULL << tkeep_bits_enabled) - 1) : ~0ULL;
++
++    // Copy the value to the sideband signal at the correct position
++    memcpy(&sideband_signal[TKEEP_BYTE_INDEX], &value, sizeof(value));
++  }
++
++  static inline void set_tlast(byte_t *sideband_signal, unsigned short int tlast) {
++    unsigned short int value = tlast & TLAST_BIT_MASK;
++    memcpy(&sideband_signal[TLAST_BYTE_INDEX], &value, sizeof(value));
 +  }
 +
 +// Set raw function
 +
 +  static inline void set_tuser_raw(byte_t *sideband, 
-+                                 unsigned short int tuser_size, 
++                                 unsigned const int tuser_size, 
 +                                 unsigned short int tuser_src, 
-+                                 unsigned short int tuser_dst, 
-+                                 unsigned short int tuser_user) {
++                                 unsigned short int tuser_dst) {
 +    // Clear sideband to avoid any data carry-over
 +    memset(sideband, 0, sideband_bytes);
 +    
@@ -478,7 +475,6 @@ index 0000000..cc4d1ba
 +    set_tuser_size(sideband, tuser_size);
 +    set_tuser_src(sideband, tuser_src);
 +    set_tuser_dst(sideband, tuser_dst);
-+    set_tuser_user(sideband, tuser_user);
 +  }
 +
 +  /* Define the structure for a word of 512 bits (64 bytes), sideband data, tkeep and tlast signals */
@@ -512,10 +508,6 @@ index 0000000..cc4d1ba
 +        return open_nic::get_sideband_tuser_dst(bytes + sideband_offset(4));
 +    }
 +
-+    int get_tuser_user() const {
-+        return open_nic::get_sideband_tuser_user(bytes + sideband_offset(6));
-+    }
-+
 +    //Mutator functions
 +    void set_tuser_size(unsigned short int size) {
 +        open_nic::set_tuser_size(bytes + sideband_offset(0), size);
@@ -529,11 +521,6 @@ index 0000000..cc4d1ba
 +        open_nic::set_tuser_dst(bytes + sideband_offset(4), dst);
 +    }
 +
-+    void set_tuser_user(unsigned short int user) {
-+        open_nic::set_tuser_user(bytes + sideband_offset(6), user);
-+     }
-+
-+
 +    byte_t &tuser() {
 +      return bytes[sideband_offset(0)];
 +    }
@@ -544,8 +531,8 @@ index 0000000..cc4d1ba
 +      return bytes[total_bytes-1];
 +    }
 +
-+    uint64_t get_tkeep() const {
-+        uint64_t keep;
++    unsigned long long get_tkeep() const {
++      unsigned long long keep;
 +        memcpy(&keep, bytes + sideband_offset(0) + sideband_bytes, sizeof(keep));
 +        return keep;
 +    }
@@ -558,14 +545,27 @@ index 0000000..cc4d1ba
 +    /* Sets first N bits of TKEEP to 1, the rest to 0 */
 +    void set_tkeep(int N) {
 +        // Create a mask for the first N bits set to 1
-+        uint64_t mask = (1ull << N) - 1; // Create a mask for the first N bits
++        unsigned long long value = (N < 64 ) ? ((1ULL << N) - 1) : ~0ULL;
 +
 +        // Write the mask to the appropriate location in TKEEP
-+        memcpy(&tkeep(), &mask, sizeof(mask)); // Copy the mask (8 bytes) into tkeep
++        memcpy(&tkeep(), &value, sizeof(value)); // Copy the mask (8 bytes) into tkeep
 +    }
 +
 +    void set_tlast(bool last) {
 +      tlast() = last;
++    }
++
++    void print_word() const {
++      printf("Data: ");
++      for (int i = 0; i < open_nic::data_bytes; i++) {  // Reverse order
++          printf("%02x ", bytes[i]);
++      }
++      printf("\n");
++      printf("Tkeep %llx\n", get_tkeep());
++      printf("Tlast %x\n", get_tlast());
++      printf("Tuser size %x\n", get_tuser_size());
++      printf("Tuser src %x\n", get_tuser_src());
++      printf("Tuser dst %x\n", get_tuser_dst());
 +    }
 +  };
 +
@@ -627,18 +627,10 @@ index 01ebd16..2f06d40 100644
    nanotube_channel &m_packet_write_channel;
    nanotube_channel &m_packet_read_channel;
 diff --git a/libnt/SConscript b/libnt/SConscript
-index 409b333..5eb6bd5 100644
+index 409b333..7684600 100644
 --- a/libnt/SConscript
 +++ b/libnt/SConscript
-@@ -24,6 +24,7 @@ high_level_sources = (
-     'nanotube_packet_metadata_sb.cpp',
-     'nanotube_packet_metadata_shb.cpp',
-     'nanotube_packet_metadata_x3rx.cpp',
-+    'nanotube_packet_metadata_open_nic.cpp',
- )
- low_level_sources = (
-     'nanotube_map_taps.cpp',
-@@ -31,6 +32,7 @@ low_level_sources = (
+@@ -31,6 +31,7 @@ low_level_sources = (
      'nanotube_packet_taps_sb.cpp',
      'nanotube_packet_taps_shb.cpp',
      'nanotube_packet_taps_x3rx.cpp',
@@ -647,7 +639,7 @@ index 409b333..5eb6bd5 100644
  )
  lib_sources = high_level_sources + low_level_sources + (
 diff --git a/libnt/nanotube_packet.cpp b/libnt/nanotube_packet.cpp
-index 1771886..c10b63e 100644
+index 1771886..8d5f9cb 100644
 --- a/libnt/nanotube_packet.cpp
 +++ b/libnt/nanotube_packet.cpp
 @@ -24,6 +24,7 @@
@@ -658,7 +650,14 @@ index 1771886..c10b63e 100644
  
  uint8_t* nanotube_packet_data(nanotube_packet_t* packet) {
    auto sec = ( packet->get_is_capsule()
-@@ -197,6 +198,7 @@ int nanotube_packet::convert_bus_type(enum nanotube_bus_id_t bus_type)
+@@ -191,12 +192,13 @@ int nanotube_packet::convert_bus_type(enum nanotube_bus_id_t bus_type)
+   if (m_bus_type == bus_type)
+     return 0;
+ 
+-  // Check the target bus format to fail early.
++  // Check the target bus format to fail early.("
+   switch (bus_type) {
+   case NANOTUBE_BUS_ID_ETH:
    case NANOTUBE_BUS_ID_SB:
    case NANOTUBE_BUS_ID_SHB:
    case NANOTUBE_BUS_ID_X3RX:
@@ -666,16 +665,15 @@ index 1771886..c10b63e 100644
      break;
  
    default:
-@@ -245,6 +247,18 @@ int nanotube_packet::convert_bus_type(enum nanotube_bus_id_t bus_type)
+@@ -245,6 +247,17 @@ int nanotube_packet::convert_bus_type(enum nanotube_bus_id_t bus_type)
      break;
    }
  
 +  case NANOTUBE_BUS_ID_OPEN_NIC: {
-+    // Extract the header fields.
 +    open_nic::header open_nic_header = {0};
 +    read(NANOTUBE_SECTION_WHOLE, (uint8_t*)&open_nic_header,
 +         0, sizeof(open_nic_header));
-+    m_port = open_nic_header.port;
++    this->m_port = open_nic_header.port;
 +
 +    // Remove the header.
 +    resize(NANOTUBE_SECTION_WHOLE, 0, -(ptrdiff_t)sizeof(open_nic_header));
@@ -685,7 +683,7 @@ index 1771886..c10b63e 100644
    default:
      // Format not supported.
      return EPROTONOSUPPORT;
-@@ -284,6 +298,15 @@ int nanotube_packet::convert_bus_type(enum nanotube_bus_id_t bus_type)
+@@ -284,6 +297,15 @@ int nanotube_packet::convert_bus_type(enum nanotube_bus_id_t bus_type)
      break;
    }
  
@@ -701,27 +699,42 @@ index 1771886..c10b63e 100644
    default:
      assert(false);
    }
-@@ -406,6 +429,7 @@ void nanotube_packet::resize(nanotube_packet_section_t sec,
+@@ -391,6 +413,7 @@ void nanotube_packet::resize(nanotube_packet_section_t sec,
+   // The new size of the section.
+   std::size_t new_size = old_size + adjustment;
+ 
++
+   // Update the offset to be relative to the start of the contents.
+   // Also update any internal metadata.
+   switch (sec) {
+@@ -406,9 +429,13 @@ void nanotube_packet::resize(nanotube_packet_section_t sec,
      case NANOTUBE_BUS_ID_SB:
      case NANOTUBE_BUS_ID_SHB:
      case NANOTUBE_BUS_ID_X3RX:
-+    case NANOTUBE_BUS_ID_OPEN_NIC:
++    case NANOTUBE_BUS_ID_OPEN_NIC: {
        // None.
        break;
  
-@@ -438,6 +462,11 @@ void nanotube_packet::resize(nanotube_packet_section_t sec,
++    
++    }
++
+     default:
+       std::cerr << "ERROR: Unsupported bus type " << m_bus_type
+                 << " for whole resize, aborting!\n";
+@@ -438,6 +465,12 @@ void nanotube_packet::resize(nanotube_packet_section_t sec,
        assert(m_contents.size() >= sizeof(x3rx_bus::header));
        offset += sizeof(x3rx_bus::header);
        break;
 +      
-+    case NANOTUBE_BUS_ID_OPEN_NIC:
++    case NANOTUBE_BUS_ID_OPEN_NIC: {
 +      assert(m_contents.size() >= sizeof(open_nic::header));
 +      offset += sizeof(open_nic::header);
 +      break;
++    }
  
      default:
        std::cerr << "ERROR: Unsupported bus type " << m_bus_type
-@@ -455,6 +484,7 @@ void nanotube_packet::resize(nanotube_packet_section_t sec,
+@@ -455,6 +488,7 @@ void nanotube_packet::resize(nanotube_packet_section_t sec,
      case NANOTUBE_BUS_ID_SB:
      case NANOTUBE_BUS_ID_SHB:
      case NANOTUBE_BUS_ID_X3RX:
@@ -729,7 +742,7 @@ index 1771886..c10b63e 100644
        // Not supported yet.
      default:
        std::cerr << "ERROR: Unsupported bus type " << m_bus_type
-@@ -507,6 +537,12 @@ nanotube_packet_port_t nanotube_packet::get_port() const
+@@ -507,6 +541,12 @@ nanotube_packet_port_t nanotube_packet::get_port() const
      return hdr->port;
    }
  
@@ -742,7 +755,7 @@ index 1771886..c10b63e 100644
    default:
      std::cerr << "ERROR: Unsupported bus type " << m_bus_type
                << " for get_port, aborting!\n";
-@@ -541,6 +577,13 @@ void nanotube_packet::set_port(nanotube_packet_port_t port)
+@@ -541,6 +581,13 @@ void nanotube_packet::set_port(nanotube_packet_port_t port)
      break;
    }
  
@@ -756,7 +769,53 @@ index 1771886..c10b63e 100644
    default:
      std::cerr << "ERROR: Unsupported bus type " << m_bus_type
                << " for set_port, aborting!\n";
-@@ -767,6 +810,35 @@ nanotube_packet::add_bus_word(uint8_t *buffer, std::size_t buf_size)
+@@ -646,6 +693,37 @@ nanotube_packet::get_bus_word(uint8_t *buffer, std::size_t buf_size,
+       memset(buffer+remaining, 0, x3rx_bus::data_bytes-remaining);
+     return false;
+   }
++
++  case NANOTUBE_BUS_ID_OPEN_NIC: {
++    assert(buf_size == open_nic::total_bytes);
++    size_t total_size = m_contents.size();
++
++    assert(offset < total_size);
++    size_t remaining = total_size - offset;
++    uint8_t *data = &(m_contents[offset]);
++
++    // Handle a word which is not the last.
++    if (remaining > open_nic::data_bytes) {
++        memcpy(buffer, data, open_nic::data_bytes);
++        open_nic::set_tuser_raw(buffer + open_nic::sideband_offset(0), (int) total_size - 1, 0, 0);
++        open_nic::set_tkeep(buffer + open_nic::sideband_signals_offset(0), open_nic::data_bytes);
++        open_nic::set_tlast(buffer + open_nic::sideband_signals_offset(0), false);
++        *iter = offset + open_nic::data_bytes;
++        return true;
++    }
++
++    // Handle the last (potentially partial) word.
++    assert(remaining > 0);
++    memcpy(buffer, data, remaining);
++    auto empty = open_nic::data_bytes - remaining;
++    if (remaining < open_nic::data_bytes)
++        memset(buffer + remaining, 0, empty);
++    open_nic::set_tuser_raw(buffer + open_nic::sideband_offset(0), (int) total_size - 1, 0, 0);
++    open_nic::set_tkeep(buffer + open_nic::sideband_signals_offset(0), remaining);
++    open_nic::set_tlast(buffer + open_nic::sideband_signals_offset(0), true);
++    return false;
++  }
++
+   }
+ }
+ 
+@@ -749,7 +827,6 @@ nanotube_packet::add_bus_word(uint8_t *buffer, std::size_t buf_size)
+         default:
+           assert(false);
+       }
+-
+       m_contents.insert(m_contents.end(), data, data+num_bytes);
+     }
+     else if (m_data_eop_seen) {
+@@ -767,6 +844,30 @@ nanotube_packet::add_bus_word(uint8_t *buffer, std::size_t buf_size)
        return true;
      }
    }
@@ -764,35 +823,30 @@ index 1771886..c10b63e 100644
 +  case NANOTUBE_BUS_ID_OPEN_NIC: {
 +    assert(buf_size == open_nic::total_bytes);
 +
-+    // Get pointers to the data, sideband, and sideband signals.
-+    open_nic::byte_t *data = buffer + open_nic::data_offset(0);
-+    open_nic::byte_t *sideband_signals = buffer + open_nic::sideband_signals_offset(0);
-+
-+    size_t num_bytes = open_nic::data_bytes;
++    // Get pointers to the data and sideband signals.
++    uint8_t *data = buffer + open_nic::data_offset(0);
++    uint8_t *sideband_signals = buffer + open_nic::sideband_signals_offset(0);
 +
 +    // Extract TKEEP and calculate the number of valid bytes.
-+    unsigned long long tkeep = open_nic::get_sideband_signal_tkeep(sideband_signals);
++    unsigned long long tkeep = 0;
++    tkeep = open_nic::get_sideband_signal_tkeep(sideband_signals);
 +    size_t valid_bytes = __builtin_popcountll(tkeep);
++
++    assert(valid_bytes <= open_nic::data_bytes);  // Sanity check
++
++    // Append only the valid portion of the data.
++    m_contents.insert(m_contents.end(), data, data + valid_bytes);
 +
 +    // Check if TLAST is asserted.
 +    bool tlast = open_nic::get_sideband_signal_tlast(sideband_signals);
 +
-+    // If TLAST is not set, append the whole word.
-+    if (!tlast) {
-+        m_contents.insert(m_contents.end(), data, data + num_bytes);
-+        // Indicate that there are more words to come.
-+        return true;
-+    }
-+    // If TLAST is set, append only the valid bytes and mark the end of the packet.
-+    else {
-+        m_contents.insert(m_contents.end(), data, data + valid_bytes);
-+        return false; // End of the packet.
-+    }
++    // Indicate whether more words are expected.
++    return !tlast;
 +  }
    }
  }
  
-@@ -789,6 +861,10 @@ std::size_t nanotube_packet::get_meta_size() const
+@@ -789,6 +890,10 @@ std::size_t nanotube_packet::get_meta_size() const
      assert(m_contents.size() >= sizeof(x3rx_bus::header));
      return sizeof(x3rx_bus::header);
  
@@ -805,28 +859,34 @@ index 1771886..c10b63e 100644
                << ", aborting!\n";
 diff --git a/libnt/nanotube_packet_metadata_open_nic.cpp b/libnt/nanotube_packet_metadata_open_nic.cpp
 new file mode 100644
-index 0000000..af2e697
+index 0000000..c1081a2
 --- /dev/null
 +++ b/libnt/nanotube_packet_metadata_open_nic.cpp
-@@ -0,0 +1,26 @@
+@@ -0,0 +1,32 @@
 +/**************************************************************************\
 +*//*! \file nanotube_packet_metadata_open_nic.cpp
-+** \author  Simone Mannarino 
-+**  \brief  Nanotube open-nic bus metadata.
++** \author  Simone Mannarino
++**  \brief  Nanotube OpenNIC bus metadata.
 +**   \date  
 +*//*
 +\**************************************************************************/
++
++/**************************************************************************
++** Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
++** SPDX-License-Identifier: MIT
++**************************************************************************/
 +
 +#include "nanotube_packet_metadata_open_nic.h"
 +#include "open_nic_bus.hpp"
 +
 +#include <cstddef>
++
 +#ifdef __clang__
 +__attribute__((always_inline))
 +#endif
 +void
 +nanotube_packet_set_port_open_nic(nanotube_packet_t* packet,
-+                                  nanotube_packet_port_t port)
++                             nanotube_packet_port_t port)
 +{
 +  static_assert(sizeof(open_nic::header::port) == 1,
 +                "port field size is incorrect");
@@ -924,12 +984,24 @@ index 82edd49..f025c98 100644
        default:
          assert(false);
    }
+diff --git a/libnt/nanotube_packet_taps_core.cpp b/libnt/nanotube_packet_taps_core.cpp
+index 0544e62..528d4e5 100644
+--- a/libnt/nanotube_packet_taps_core.cpp
++++ b/libnt/nanotube_packet_taps_core.cpp
+@@ -1669,7 +1669,6 @@ void nanotube_tap_packet_resize_egress_core(
+             << " push_2=" << unsigned(push_2)
+             << "\n";
+ #endif
+-
+   *word_eop_out = push_2 ? bool(0) : cword->eop;
+   *word_length_out = push_2 ? packet_word_length : cword->word_length;
+ 
 diff --git a/libnt/nanotube_packet_taps_open_nic.cpp b/libnt/nanotube_packet_taps_open_nic.cpp
 new file mode 100644
-index 0000000..69372bc
+index 0000000..7805666
 --- /dev/null
 +++ b/libnt/nanotube_packet_taps_open_nic.cpp
-@@ -0,0 +1,350 @@
+@@ -0,0 +1,328 @@
 + /**************************************************************************\
 +*//*! \file nanotube_packet_taps_open_nic.h
 +** \author  Simone Mannarino
@@ -949,45 +1021,26 @@ index 0000000..69372bc
 +// Decode how many bytes in this word are valid packet data
 +
 +static inline
-+uint16_t open_nic_valid_data_bytes(const open_nic::word* open_nic_word, uint8_t *data_eop_seen)
++uint16_t open_nic_valid_data_bytes(const open_nic::word* open_nic_word)
 +#if __clang__
 +    __attribute__((always_inline))
 +#endif
 +{
-+    // Reset tracking of EOP when we see a new packet (SOP is not applicable in this context)
-+    if (open_nic_word->get_tlast() == false) {
-+        *data_eop_seen = 0; // Reset EOP tracking
-+    }
++    // Get the tkeep bitmask
++    unsigned long long tkeep_mask = open_nic_word->get_tkeep();
 +
-+    // Check if this is the last valid beat of the data (EOP)
-+    if (open_nic_word->get_tlast()) {
-+        // Get the number of valid bytes from tuser_size
-+        uint16_t valid_bytes = open_nic_word->get_tuser_size();
-+
-+        // Get the tkeep bitmask
-+        uint64_t tkeep_mask = open_nic_word->get_tkeep();
-+
-+        // Count the valid bytes based on tkeep
-+        uint16_t byte_count = 0;
-+        for (int i = 0; i < 64; ++i) {
-+            if (tkeep_mask & (1ULL << i)) {
-+                byte_count++;
-+            }
++    // Count the valid bytes based on tkeep
++    uint16_t byte_count = 0;
++    for (int i = 0; i < 64; ++i) {
++        if (tkeep_mask & (1ULL << i)) {
++            byte_count++;
 +        }
-+
-+        // Remember we've seen data EOP in case there are subsequent words with just metadata
-+        *data_eop_seen = 1;
-+
-+        // Return the minimum of valid bytes and byte count based on tkeep
-+        return (valid_bytes < byte_count) ? valid_bytes : byte_count;
-+    } else if (*data_eop_seen) {
-+        // No valid data bytes after EOP
-+        return 0;
 +    }
 +
-+    // Return the total expected bytes if no EOP has been encountered
-+    return open_nic_word->get_tuser_size(); // Return the total size from tuser_size
++    return byte_count;
 +}
++
++
 +
 +///////////////////////////////////////////////////////////////////////////
 +
@@ -1016,7 +1069,7 @@ index 0000000..69372bc
 +    bool packet_word_eop = open_nic_w_in->get_tlast();
 +
 +    // Calculate the length of valid data bytes in the packet
-+    packet_word_length = open_nic_valid_data_bytes(open_nic_w_in, &state_inout->data_eop_seen);
++    packet_word_length = open_nic_valid_data_bytes(open_nic_w_in);
 +
 +    // Call core processing function with the computed packet length and EOP status
 +    nanotube_tap_packet_length_core(
@@ -1053,7 +1106,7 @@ index 0000000..69372bc
 +{
 +    check_type(nanotube_tap_packet_read, _open_nic);
 +
-+    const uint8_t word_index_bits = 2;
++    const uint8_t word_index_bits = 6;
 +    static_assert(sizeof(open_nic::data_bytes) <= (1U << word_index_bits),
 +                  "Word index width is too small.");
 +    
@@ -1064,7 +1117,7 @@ index 0000000..69372bc
 +    bool packet_word_eop = open_nic_w_in->get_tlast();
 +
 +    // Calculate the length of valid data bytes in the packet
-+    packet_word_length = open_nic_valid_data_bytes(open_nic_w_in, &state_inout->data_eop_seen);
++    packet_word_length = open_nic_valid_data_bytes(open_nic_w_in);
 +
 +    // Call the core processing function with the computed packet length and EOP status
 +    nanotube_tap_packet_read_core(
@@ -1118,7 +1171,7 @@ index 0000000..69372bc
 +    bool packet_word_eop = open_nic_w_in->get_tlast();
 +
 +    // Calculate the length of valid data bytes in the packet
-+    packet_word_length = open_nic_valid_data_bytes(open_nic_w_in, &state_inout->data_eop_seen);
++    packet_word_length = open_nic_valid_data_bytes(open_nic_w_in);
 +
 +    // Propagate any additional sideband bytes/signals
 +    if (open_nic::total_bytes > open_nic::data_bytes) {
@@ -1178,10 +1231,10 @@ index 0000000..69372bc
 +
 +    uint16_t packet_word_length;
 +
-+    // Calculate the length of valid data bytes in the packet
-+    packet_word_length = open_nic_valid_data_bytes(open_nic_w_in, &state->data_eop_seen);
-+
 +    bool packet_word_eop = open_nic_w_in->get_tlast();
++
++    // Calculate the length of valid data bytes in the packet
++    packet_word_length = open_nic_valid_data_bytes(open_nic_w_in);
 +
 +    nanotube_tap_packet_resize_ingress_core(
 +        open_nic::data_bytes,
@@ -1245,16 +1298,13 @@ index 0000000..69372bc
 +    if (*word_valid_out && open_nic::sideband_signals_bytes) {
 +        // Set tlast to indicate end of packet
 +        open_nic_w_out->set_tlast(word_eop_out);
++        
++        open_nic_w_out->set_tkeep(word_length_out);
 +
-+        // Set tkeep based on the valid word length; 
-+        // Ensure tkeep reflects valid bytes according to packet specifications
-+        uint64_t tkeep_value = (word_length_out < open_nic::data_bytes) 
-+                                ? ((1ULL << word_length_out) - 1) 
-+                                : 0xFFFFFFFFFFFFFFFF; // All valid if length is max
-+        open_nic_w_out->set_tkeep(tkeep_value);
-+
-+        // Handle tuser signals
-+        open_nic_w_out->set_tuser_size( new_packet_len); // Set the packet size
++        // Copy sideband signals from input to output
++        open_nic_w_out->set_tuser_size(open_nic_w_in->get_tuser_size());
++        open_nic_w_out->set_tuser_src(open_nic_w_in->get_tuser_src());
++        open_nic_w_out->set_tuser_dst(open_nic_w_in->get_tuser_dst());
 +    }
 +}
 +
@@ -1281,7 +1331,7 @@ index 0000000..69372bc
 +
 +///////////////////////////////////////////////////////////////////////////
 diff --git a/libnt/packet_kernel.cpp b/libnt/packet_kernel.cpp
-index 1a5d6c9..1a36f88 100644
+index 1a5d6c9..d1ddb73 100644
 --- a/libnt/packet_kernel.cpp
 +++ b/libnt/packet_kernel.cpp
 @@ -21,6 +21,7 @@
@@ -1323,14 +1373,22 @@ index 1a5d6c9..1a36f88 100644
    }
  }
  
-@@ -250,6 +263,27 @@ channel_packet_kernel::write_x3rx_packet(nanotube_packet_t *packet)
+@@ -238,6 +251,8 @@ channel_packet_kernel::write_x3rx_packet(nanotube_packet_t *packet)
+   x3rx_bus::word w = {0};
+   size_t iter = 0;
+ 
++
++
+   assert(m_packet_write_channel.get_elem_size() == x3rx_bus::total_bytes);
+ 
+   bool more = true;
+@@ -250,6 +265,26 @@ channel_packet_kernel::write_x3rx_packet(nanotube_packet_t *packet)
    } 
  }
  
 +void
 +channel_packet_kernel::write_open_nic_packet(nanotube_packet_t *packet)
 +{
-+  // Make sure the correct metadata is present.
 +  packet->convert_bus_type(NANOTUBE_BUS_ID_OPEN_NIC);
 +
 +  open_nic::word w = {0};
@@ -1351,7 +1409,7 @@ index 1a5d6c9..1a36f88 100644
  void
  channel_packet_kernel::write_word(const uint8_t *data,
                                    size_t data_size)
-@@ -285,10 +319,14 @@ bool channel_packet_kernel::try_read_word()
+@@ -285,10 +320,14 @@ bool channel_packet_kernel::try_read_word()
    case NANOTUBE_CHANNEL_TYPE_X3RX_PACKET:
      return try_read_x3rx_word();
      break;
@@ -1367,7 +1425,7 @@ index 1a5d6c9..1a36f88 100644
    }
    return false;
  }
-@@ -377,6 +415,35 @@ bool channel_packet_kernel::try_read_x3rx_word()
+@@ -377,6 +416,32 @@ bool channel_packet_kernel::try_read_x3rx_word()
    return true;
  }
  
@@ -1387,15 +1445,12 @@ index 1a5d6c9..1a36f88 100644
 +    // Indicate that a word was read.
 +    return true;
 +
-+  // Convert the packet to Ethernet.
-+  m_read_packet.convert_bus_type(NANOTUBE_BUS_ID_ETH);
-+
 +  // Process the packet.
 +  m_system.receive_packet(&m_read_packet, NANOTUBE_PACKET_PASS);
 +
 +  // Clear the buffer for the next packet.
-+  m_read_packet.reset(m_bus_type);
-+
++  m_read_packet.reset(m_bus_type, true);
++  
 +  // Indicate that a word was read.
 +  return true;
 +}

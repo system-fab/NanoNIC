@@ -2,14 +2,13 @@
 
 ## Project Goal
 
-The **NanoNIC** project integrates **Nanotube**, a compiler for translating eBPF programs into FPGA-friendly hardware descriptions, with **OpenNIC**, an open-source framework for programmable network interface cards. The goal is to enable hardware-accelerated, high-performance eBPF-based packet processing for modern networking use cases.
+The **NanoNIC** project integrates **Nanotube**, a compiler for translating eBPF programs into FPGA-friendly hardware descriptions, with **OpenNIC**, an open-source framework for programmable network interface cards. The goal is to enable hardware-accelerated, high-performance eBPF-based packet processing.
 
 This project provides a proof-of-concept system demonstrating how to:
 
 1. Translate eBPF programs into FPGA bitstreams using **Nanotube** and **High-Level Synthesis (HLS)**.
 2. Utilize **OpenNIC** to interface with network traffic and manage FPGA-host communication.
-
----
+3. Compare the performance of FPGA-accelerated eBPF programs with general-purpose CPU execution.
 
 ## Project Description
 
@@ -22,9 +21,11 @@ This project includes the following components:
    - Nanotube doesn't official support the OpenNIC bus interface so we added it to the official repository.
 
 2. **Wrapper Implementation:**
-   - The wrapper connects **OpenNIC** and **Nanotube**, enabling FPGA packet processing.
 
----
+   - The wrapper connects **OpenNIC** and **Nanotube**-generated IPs.
+
+3. **eBPF Programs:**
+   - A set of eBPF programs for testing the system. Inside the Custom_applications folder you can find the eBPF programs that we used for testing. Plus also a script for compiling every eBPF program with Nanotube and a guide that describes how to compile, execute and test each program before deploying it on the FPGA.
 
 ### Prerequisites
 
@@ -33,7 +34,7 @@ To build and deploy the NanoNIC system, ensure the following are installed:
 - **Xilinx Vivado** (v2022.1) for FPGA synthesis and implementation.
 - **Ubuntu 20.04** with kernel development tools.
 
-The building process often requires a great amount of RAM installed. If you don't have 64 GB available, make sure to dimension the swapfile in order to reach that amount.
+The building process often requires a great amount of RAM installed. If you don't have 64 GB available, make sure to dimension the swapfile in order to reach that amount. (Look [here](https://askubuntu.com/questions/178712/how-to-increase-swap-space) for a guide).
 
 Both Nanotube and the OpenNIC shell are linked as submodules to this repository so just run this command in order to download them:
 
@@ -47,7 +48,13 @@ Now, you can apply the patch created for Nanotube repository. To do so, run the 
 patch -d ./nanotube -p1 < nanotube.patch
 ```
 
-Unfortunately, the shell.patch has some lines that depends from the user's environment so it is not possible to apply it automatically. You should use it as guide to apply the changes manually or fix all the paths that are not correct.
+For the OpenNIC shell, you need to execute the file named `synth_open-nic_project.sh` . This will create the necessary files for the Vivado project. Before,
+
+```shell
+./synth_open-nic_project.sh
+```
+
+The compilation is going to take a while so you can take a break and come back later. After the compilation is done, you can open the Vivado project and start working on the FPGA design.
 
 ### [Nanotube](nanotube/README.md)
 
@@ -55,35 +62,25 @@ Here is a simple representation of the Nanotube compiler:
 
 ![Nanotube](docs/Nanotube_chain.jpg)
 
-Once the patch is applied, you can follow the instructions in the Nanotube README to build the compiler, download katran and build the IPs with the HLS synthesis. Next, create an empty Vivado project and press Tools -> Settings -> IP -> Repository and add the path to the nanotube/hls/ directory. You should see some new IPs added to the project. After that, you can create a new block design and add all IP by pressing the "+" button and selecting all the IPs that are called stage{number}.
+Once the patch is applied, you can follow the instructions in the Nanotube README to build the compiler, download Katran and build the IPs with the HLS synthesis.
 
-To perform the HLS synthesis, run this command inside the nanotube directory:
+To perform the HLS synthesis, run this command inside the Nanotube directory (N is the number of threads you want to use):
 
 ```shell
-scripts/hls_build examples/katran/balancer_kern.O3.nt.req.lower.inline.platform.optreq.converge.pipeline.link_taps.inline_opt.hls HLS_build/katran -j 5 -L/usr/lib/x86_64-linux-gnu -L/usr/lib/gcc/x86_64-linux-gnu/9 -v
+scripts/hls_build path_to_your_stages_cc_files/*.hls HLS_build/name_of_your_application -j N -L/usr/lib/x86_64-linux-gnu -L/usr/lib/gcc/x86_64-linux-gnu/9 -v
 ```
 
-This is an example of an IP:
-
-![IP](docs/Nanotube_output.png)
-
-Inside the .hls build directory, you will find a `vitis_opts.ini` file that contains all the necessary links that you need to reproduce inside the Block design. If a port is not connected to anything, right click on it and press "Make it external". At this point you should connect all the clock and reset ports together and the result should be a block design that looks like this:
-
-![Block Design](docs/Katran_pipeline.png)
-
-At this point, you can generate the wrapper for the block design by simply right clicking on the block design and pressing "Create HDL Wrapper". This will generate a new file that can be used to access the block design. The next step is to export the block design to the open-nic-shell project. To do so, place the block design inside the open-nic-shell/plugin/p2p/box_250mhz directory and rename it to `NK_open_nic`. If inside the folder there are some stub files, you can delete them.
+After the HLS synthesis is done, you can find the IPs in the HLS_build directory. You can now move the IPs to the OpenNIC shell directory and start building the FPGA design.
 
 ### [OpenNIC-shell](open-nic-shell/README.md)
 
 The OpenNIC shell is a framework that allows the user to create a custom NIC with a custom pipeline. For more information please visit the OpenNIC repository.
 
-In order to build the OpenNIC shell with our custom IP inside, some modifications are needed. First of all, take a look at the `shell.patch` file. There you can find all the changes needed but you need to adapt the paths to your environment. After that, you can start the compilation by running this command inside the script folder:
+In order to build the OpenNIC shell with our custom IP inside, some modifications are needed. First of all, execute the `synth_open-nic_project.sh` file and generate a Vivado project of the OpenNIC shell. Then, press Tools -> Settings -> IP -> Repository and add the path to the nanotube/HLS\*build/application directory. You should see some new IPs added to the project. After that, you can create a new block design and add all IP by pressing the "+" button and selecting all the IPs that are called stage\_{number}. Inside the .hls build directory, you will find a `vitis_opts.ini` file that contains all the necessary links that you need to reproduce inside the Block design. If a port is not connected to anything, right click on it and press "Make it external". At this point you should connect all the clock and reset ports together and the result should be a block design that looks like this:
 
-```shell
-vivado -mode tcl -source build.tcl -tclargs -board au250 -tag Nanotube_katran -jobs 8 -synth_ip 1 -impl 1 -use_phys_func 0 -sim 0
-```
+![Block Design](docs/Nanotube_pipeline.png)
 
-After this command has finished, in the `build` folder you should find a directory named `Nanotube_katran` with 2 folders inside. The folder named `open-nic-shell` contains the Vivado project of the OpenNIC shell. You can open it directly in Vivado to see the results.
+Now, you can let Vivado create the wrapper for you. This file is essential to connect the OpenNIC shell with the custom pipeline. Since the IPs generated by Nanotube include also a tstrb signal that is useless in the OpenNIC context, see how you can fix it by looking at the file named `Nanotube_pipeline_wrapper.v`. After that, you can connect the pipeline to the OpenNIC shell by changing the `p2p_250mhz.sv` file inside Vivado. Replace line 282 where the rx_ppl_inst is connected to an axi_stream_pipeline and use the custom pipeline that you created. Now, you need to set as global the file named `open_nic_shell_macros.vh`. The next step is to generate the bitstream by pressing the "Generate Bitstream" button.
 
 ## Warnings and Errors
 
@@ -92,6 +89,8 @@ Be careful when you try to emulate this project because a lot of things can go w
 - Sometimes in the Nanotube README file, the `nanotube-llvm` directory is missplelled. Make sure to correct it.
 - There's also need to install python3-distutils package in order to make scons work.
 - If you have problems with installling Vivado, here is a guide to do it (https://www.reddit.com/r/Xilinx/comments/s7lcgq/comment/ib643pc/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button)
+- When you try to run the **Behavioral Simulation** in Vivado, you may encounter an error stating that files like `bd_7485_lmb_bram_0.mem` or `bd_7485_reg_map_bram_0.mem` are missing. If this happens, simply create an empty file with the same name to allow Vivado to initialize that memory region to zero. Credit: Thanks to **Francesco Maria Tranquillo** for this helpful insight.
+- You may encounter an error saying "Vivado "$RDI_PROG" "$@". The problem is that you may not have enought ram to run the program. You can try to increase the swapfile size or try to run the program in a machine with more ram.
 
 ## Limitations
 
@@ -101,11 +100,13 @@ Unfortunately, the current implementation has several limitations that you shoul
 
 2. The Nanotube compiler currently supports only a subset of eBPF features (e.g. Per-cpu maps are not supported)
 
+3. Big pipelines like the one of Katran fails to meet the timing constraints in the OpenNIC shell. As of today, we are still working on this issue.
+
 ## Roadmap
 
+- [x] Integrate Nanotube with OpenNIC support and pass the repository tests.
 - [ ] Achieve a working implementation on FPGA.
-- [ ] Test the hardware design in a real world scenario.
-- [ ] Create a new custom eBPF application and test the entire process with it.
+- [ ] Test the hardware design in a real-world scenario.
 
 ## Acknowledgment
 

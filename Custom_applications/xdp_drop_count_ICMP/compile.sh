@@ -2,11 +2,13 @@ export PATH=/home/simo/Desktop/Tesi/nanotube-llvm/build/bin:$PATH
 export LLVM_CONFIG=/home/simo/Desktop/Tesi/nanotube-llvm/build/bin/llvm-config
 export LD_LIBRARY_PATH=/home/simo/Desktop/Tesi/nanotube-llvm/build/lib:$LD_LIBRARY_PATH
 
-name_file=xdp_pass_all
+KATRAN=../../external/katran
+
+name_file=xdp_drop_count_ICMP_nanotube
 
 name_bus=open_nic
 
-clang -o $name_file.bc -c -emit-llvm -Wall -Werror -O2 -g -Wno-comment -Wno-gcc-compat -Iinclude $name_file.c -fno-vectorize -fno-slp-vectorize
+clang -o $name_file.bc -c -emit-llvm -O2 -g -Wno-unused-value -Wno-pointer-sign -Wno-compare-distinct-pointer-types -fno-vectorize -fno-slp-vectorize  -I $KATRAN/katran/lib/linux_includes -I $KATRAN/katran/lib/bpf -Iinclude $name_file.c -fno-vectorize -fno-slp-vectorize 
 
 ../../build/nanotube_opt -o $name_file.ebpf2nt.bc $name_file.bc -ebpf2nanotube -bus=$name_bus
 
@@ -31,3 +33,8 @@ llvm-link -o $name_file.ebpf2nt.mem2req.lower.inline.platform.ntattr.optreq.conv
 ../../build/nanotube_opt -o $name_file.ebpf2nt.mem2req.lower.inline.platform.ntattr.optreq.converge.pipeline.link_taps.inline_opt.bc $name_file.ebpf2nt.mem2req.lower.inline.platform.ntattr.optreq.converge.pipeline.link_taps.bc -always-inline -rewrite-setup -replace-malloc -thread-const -constprop -codegenprepare -constprop -dce -enable-loop-unroll -loop-unroll -move-alloca -simplifycfg -instcombine -thread-const -constprop -simplifycfg -bus=$name_bus
 
 ../../build/nanotube_back_end --overwrite $name_file.ebpf2nt.mem2req.lower.inline.platform.ntattr.optreq.converge.pipeline.link_taps.inline_opt.bc -o $name_file.ebpf2nt.mem2req.lower.inline.platform.ntattr.optreq.converge.pipeline.link_taps.inline_opt.hls
+
+# Other method:
+
+# ../../build/nanotube_opt xdp_application.O3.nt.req.lower.inline.platform.optreq.converge.pipeline.link_taps.bc -o xdp_application.O3.nt.req.lower.inline.platform.optreq.converge.pipeline.link_taps.inline_opt.bc -always-inline -rewrite-setup -replace-malloc -thread-const -constprop -enable-loop-unroll -loop-unroll -move-alloca -simplifycfg -instcombine -thread-const -constprop -simplifycfg -bus=open_nic
+

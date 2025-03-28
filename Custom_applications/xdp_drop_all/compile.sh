@@ -1,6 +1,6 @@
-export PATH=/scratch/$USER/nanotube-llvm/build/bin:$PATH
-export LLVM_CONFIG=/scratch/$USER/nanotube-llvm/build/bin/llvm-config
-export LD_LIBRARY_PATH=/scratch/$USER/nanotube-llvm/build/lib:$LD_LIBRARY_PATH
+export PATH=/home/simo/Desktop/Tesi/nanotube-llvm/build/bin:$PATH
+export LLVM_CONFIG=/home/simo/Desktop/Tesi/nanotube-llvm/build/bin/llvm-config
+export LD_LIBRARY_PATH=/home/simo/Desktop/Tesi/nanotube-llvm/build/lib:$LD_LIBRARY_PATH
 
 name_file=xdp_drop_all
 
