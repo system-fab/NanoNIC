@@ -9,7 +9,6 @@
 SEC("xdp_swap_mac")
 int xdp_prog(struct xdp_md *ctx)
 {
-    //uint64_t start = bpf_ktime_get_ns();
     void *data_end = (void *)(long)ctx->data_end;
     void *data = (void *)(long)ctx->data;
     struct ethhdr *eth = data;
@@ -110,11 +109,6 @@ int xdp_prog(struct xdp_md *ctx)
 #pragma unroll
     for (int i = 0; i < ETH_ALEN; i++)
         eth->h_dest[i] = tmp_mac[i];
-
-    //uint64_t end = bpf_ktime_get_ns();
-    //uint64_t diff = end - start;
-
-    //bpf_printk("Latency MAC: %llu ns\n", diff);
 
     return XDP_PASS;
 }

@@ -1,0 +1,464 @@
+`timescale 1ns / 1ps
+
+module Nanotube_pipeline_tb;
+
+  reg ap_clk_0;
+  reg ap_rst_n_0;
+  reg [511:0] port0_0_tdata;
+  reg [63:0] port0_0_tkeep;
+  reg port0_0_tlast;
+  reg [47:0] port0_0_tuser;
+  reg port0_0_tvalid;
+  wire port0_0_tready;
+  wire [511:0] port1_0_tdata;
+  wire [63:0] port1_0_tkeep;
+  wire port1_0_tlast;
+  reg port1_0_tready;
+  wire [47:0] port1_0_tuser;
+  wire port1_0_tvalid;
+  
+  integer start_time, end_time;
+
+
+  // Instantiate the wrapper
+  Nanotube_pipeline_wrapper uut (
+    .ap_clk_0(ap_clk_0),
+    .ap_rst_n_0(ap_rst_n_0),
+    .port0_0_tdata(port0_0_tdata),
+    .port0_0_tkeep(port0_0_tkeep),
+    .port0_0_tlast(port0_0_tlast),
+    .port0_0_tready(port0_0_tready),
+    .port0_0_tuser(port0_0_tuser),
+    .port0_0_tvalid(port0_0_tvalid),
+    .port1_0_tdata(port1_0_tdata),
+    .port1_0_tkeep(port1_0_tkeep),
+    .port1_0_tlast(port1_0_tlast),
+    .port1_0_tready(port1_0_tready),
+    .port1_0_tuser(port1_0_tuser),
+    .port1_0_tvalid(port1_0_tvalid)
+  );
+  
+  // Clock generation (250 MHz = 4 ns period)
+  always #2 ap_clk_0 = ~ap_clk_0;
+  
+  // Handshake happens between master and slave
+  wire port0_handshake;
+  assign port0_handshake = port0_0_tvalid & port0_0_tready;
+  
+  wire port1_handshake;
+  assign port1_handshake = port1_0_tvalid & port1_0_tready;
+  
+  initial begin
+      ap_clk_0 = 0;
+      ap_rst_n_0 = 0;
+      port0_0_tdata = 0;
+      port0_0_tkeep = 0;
+      port0_0_tlast = 0;
+      port0_0_tuser = 0;
+      port0_0_tvalid = 0;
+      port1_0_tready = 1;
+    
+      #20;
+      ap_rst_n_0 = 1;
+    
+      wait(port0_0_tready);
+      #2;
+    
+      // === Packet 1 ===
+      // Beat 1
+      port0_0_tdata = 512'h14131211100000000000091ba000000000635114e20300526843f400080301a8c00101a8c088c501400040cbf154000045000801010000000203010000000200;
+      port0_0_tkeep = 64'hFFFFFFFFFFFFFFFF;
+      port0_0_tuser = 48'h000000000062;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 0;
+      #4;
+    
+      // Beat 2
+      port0_0_tdata = 512'h00000000000000000000000000000000000000000000000000000000000037363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a1918171615;
+      port0_0_tkeep = 64'h00000007ffffffff;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 1;
+      #4;
+      
+      // === Packet 2 ===
+      // Beat 1
+      port0_0_tdata = 512'h14131211100000000000091ba000000000635114e20300526843f400080301a8c00101a8c088c501400040cbf154000045000801010000000203010000000200;
+      port0_0_tkeep = 64'hFFFFFFFFFFFFFFFF;
+      port0_0_tuser = 48'h000000000062;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 0;
+      #4;
+    
+      // Beat 2
+      port0_0_tdata = 512'h00000000000000000000000000000000000000000000000000000000000037363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a1918171615;
+      port0_0_tkeep = 64'h00000007ffffffff;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 1;
+      #4;
+      
+      // === Packet 3 ===
+      // Beat 1
+      port0_0_tdata = 512'h14131211100000000000091ba000000000635114e20300526843f400080301a8c00101a8c088c501400040cbf154000045000801010000000203010000000200;
+      port0_0_tkeep = 64'hFFFFFFFFFFFFFFFF;
+      port0_0_tuser = 48'h000000000062;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 0;
+      #4;
+    
+      // Beat 2
+      port0_0_tdata = 512'h00000000000000000000000000000000000000000000000000000000000037363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a1918171615;
+      port0_0_tkeep = 64'h00000007ffffffff;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 1;
+      #4;
+      
+      // === Packet 4 ===
+      // Beat 1
+      port0_0_tdata = 512'h14131211100000000000091ba000000000635114e20300526843f400080301a8c00101a8c088c501400040cbf154000045000801010000000203010000000200;
+      port0_0_tkeep = 64'hFFFFFFFFFFFFFFFF;
+      port0_0_tuser = 48'h000000000062;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 0;
+      #4;
+    
+      // Beat 2
+      port0_0_tdata = 512'h00000000000000000000000000000000000000000000000000000000000037363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a1918171615;
+      port0_0_tkeep = 64'h00000007ffffffff;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 1;
+      #4;
+      
+      // === Packet 5 ===
+      // Beat 1
+      port0_0_tdata = 512'h14131211100000000000091ba000000000635114e20300526843f400080301a8c00101a8c088c501400040cbf154000045000801010000000203010000000200;
+      port0_0_tkeep = 64'hFFFFFFFFFFFFFFFF;
+      port0_0_tuser = 48'h000000000062;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 0;
+      #4;
+    
+      // Beat 2
+      port0_0_tdata = 512'h00000000000000000000000000000000000000000000000000000000000037363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a1918171615;
+      port0_0_tkeep = 64'h00000007ffffffff;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 1;
+      #4;
+      
+      // === Packet 6 ===
+      // Beat 1
+      port0_0_tdata = 512'h14131211100000000000091ba000000000635114e20300526843f400080301a8c00101a8c088c501400040cbf154000045000801010000000203010000000200;
+      port0_0_tkeep = 64'hFFFFFFFFFFFFFFFF;
+      port0_0_tuser = 48'h000000000062;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 0;
+      #4;
+    
+      // Beat 2
+      port0_0_tdata = 512'h00000000000000000000000000000000000000000000000000000000000037363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a1918171615;
+      port0_0_tkeep = 64'h00000007ffffffff;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 1;
+      #4;
+      
+      // === Packet 7 ===
+      // Beat 1
+      port0_0_tdata = 512'h14131211100000000000091ba000000000635114e20300526843f400080301a8c00101a8c088c501400040cbf154000045000801010000000203010000000200;
+      port0_0_tkeep = 64'hFFFFFFFFFFFFFFFF;
+      port0_0_tuser = 48'h000000000062;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 0;
+      #4;
+    
+      // Beat 2
+      port0_0_tdata = 512'h00000000000000000000000000000000000000000000000000000000000037363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a1918171615;
+      port0_0_tkeep = 64'h00000007ffffffff;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 1;
+      #4;
+      
+      // === Packet 8 ===
+      // Beat 1
+      port0_0_tdata = 512'h14131211100000000000091ba000000000635114e20300526843f400080301a8c00101a8c088c501400040cbf154000045000801010000000203010000000200;
+      port0_0_tkeep = 64'hFFFFFFFFFFFFFFFF;
+      port0_0_tuser = 48'h000000000062;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 0;
+      #4;
+    
+      // Beat 2
+      port0_0_tdata = 512'h00000000000000000000000000000000000000000000000000000000000037363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a1918171615;
+      port0_0_tkeep = 64'h00000007ffffffff;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 1;
+      #4;
+      
+      // === Packet 9 ===
+      // Beat 1
+      port0_0_tdata = 512'h14131211100000000000091ba000000000635114e20300526843f400080301a8c00101a8c088c501400040cbf154000045000801010000000203010000000200;
+      port0_0_tkeep = 64'hFFFFFFFFFFFFFFFF;
+      port0_0_tuser = 48'h000000000062;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 0;
+      #4;
+    
+      // Beat 2
+      port0_0_tdata = 512'h00000000000000000000000000000000000000000000000000000000000037363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a1918171615;
+      port0_0_tkeep = 64'h00000007ffffffff;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 1;
+      #4;
+      
+      // === Packet 10 ===
+      // Beat 1
+      port0_0_tdata = 512'h14131211100000000000091ba000000000635114e20300526843f400080301a8c00101a8c088c501400040cbf154000045000801010000000203010000000200;
+      port0_0_tkeep = 64'hFFFFFFFFFFFFFFFF;
+      port0_0_tuser = 48'h000000000062;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 0;
+      #4;
+    
+      // Beat 2
+      port0_0_tdata = 512'h00000000000000000000000000000000000000000000000000000000000037363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a1918171615;
+      port0_0_tkeep = 64'h00000007ffffffff;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 1;
+      #4;
+      
+      // === Packet 11 ===
+      // Beat 1
+      port0_0_tdata = 512'h14131211100000000000091ba000000000635114e20300526843f400080301a8c00101a8c088c501400040cbf154000045000801010000000203010000000200;
+      port0_0_tkeep = 64'hFFFFFFFFFFFFFFFF;
+      port0_0_tuser = 48'h000000000062;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 0;
+      #4;
+    
+      // Beat 2
+      port0_0_tdata = 512'h00000000000000000000000000000000000000000000000000000000000037363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a1918171615;
+      port0_0_tkeep = 64'h00000007ffffffff;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 1;
+      #4;
+      
+      // === Packet 12 ===
+      // Beat 1
+      port0_0_tdata = 512'h14131211100000000000091ba000000000635114e20300526843f400080301a8c00101a8c088c501400040cbf154000045000801010000000203010000000200;
+      port0_0_tkeep = 64'hFFFFFFFFFFFFFFFF;
+      port0_0_tuser = 48'h000000000062;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 0;
+      #4;
+    
+      // Beat 2
+      port0_0_tdata = 512'h00000000000000000000000000000000000000000000000000000000000037363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a1918171615;
+      port0_0_tkeep = 64'h00000007ffffffff;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 1;
+      #4;
+      
+      // === Packet 13 ===
+      // Beat 1
+      port0_0_tdata = 512'h14131211100000000000091ba000000000635114e20300526843f400080301a8c00101a8c088c501400040cbf154000045000801010000000203010000000200;
+      port0_0_tkeep = 64'hFFFFFFFFFFFFFFFF;
+      port0_0_tuser = 48'h000000000062;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 0;
+      #4;
+    
+      // Beat 2
+      port0_0_tdata = 512'h00000000000000000000000000000000000000000000000000000000000037363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a1918171615;
+      port0_0_tkeep = 64'h00000007ffffffff;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 1;
+      #4;
+      
+      // === Packet 14 ===
+      // Beat 1
+      port0_0_tdata = 512'h14131211100000000000091ba000000000635114e20300526843f400080301a8c00101a8c088c501400040cbf154000045000801010000000203010000000200;
+      port0_0_tkeep = 64'hFFFFFFFFFFFFFFFF;
+      port0_0_tuser = 48'h000000000062;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 0;
+      #4;
+    
+      // Beat 2
+      port0_0_tdata = 512'h00000000000000000000000000000000000000000000000000000000000037363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a1918171615;
+      port0_0_tkeep = 64'h00000007ffffffff;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 1;
+      #4;
+      
+      // === Packet 15 ===
+      // Beat 1
+      port0_0_tdata = 512'h14131211100000000000091ba000000000635114e20300526843f400080301a8c00101a8c088c501400040cbf154000045000801010000000203010000000200;
+      port0_0_tkeep = 64'hFFFFFFFFFFFFFFFF;
+      port0_0_tuser = 48'h000000000062;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 0;
+      #4;
+    
+      // Beat 2
+      port0_0_tdata = 512'h00000000000000000000000000000000000000000000000000000000000037363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a1918171615;
+      port0_0_tkeep = 64'h00000007ffffffff;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 1;
+      #4;
+      
+      // === Packet 16 ===
+      // Beat 1
+      port0_0_tdata = 512'h14131211100000000000091ba000000000635114e20300526843f400080301a8c00101a8c088c501400040cbf154000045000801010000000203010000000200;
+      port0_0_tkeep = 64'hFFFFFFFFFFFFFFFF;
+      port0_0_tuser = 48'h000000000062;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 0;
+      #4;
+    
+      // Beat 2
+      port0_0_tdata = 512'h00000000000000000000000000000000000000000000000000000000000037363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a1918171615;
+      port0_0_tkeep = 64'h00000007ffffffff;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 1;
+      #4;
+      
+      // === Packet 17 ===
+      // Beat 1
+      port0_0_tdata = 512'h14131211100000000000091ba000000000635114e20300526843f400080301a8c00101a8c088c501400040cbf154000045000801010000000203010000000200;
+      port0_0_tkeep = 64'hFFFFFFFFFFFFFFFF;
+      port0_0_tuser = 48'h000000000062;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 0;
+      #4;
+    
+      // Beat 2
+      port0_0_tdata = 512'h00000000000000000000000000000000000000000000000000000000000037363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a1918171615;
+      port0_0_tkeep = 64'h00000007ffffffff;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 1;
+      #4;
+      
+      // === Packet 18 ===
+      // Beat 1
+      port0_0_tdata = 512'h14131211100000000000091ba000000000635114e20300526843f400080301a8c00101a8c088c501400040cbf154000045000801010000000203010000000200;
+      port0_0_tkeep = 64'hFFFFFFFFFFFFFFFF;
+      port0_0_tuser = 48'h000000000062;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 0;
+      #4;
+    
+      // Beat 2
+      port0_0_tdata = 512'h00000000000000000000000000000000000000000000000000000000000037363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a1918171615;
+      port0_0_tkeep = 64'h00000007ffffffff;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 1;
+      #4;
+      
+      // === Packet 19 ===
+      // Beat 1
+      port0_0_tdata = 512'h14131211100000000000091ba000000000635114e20300526843f400080301a8c00101a8c088c501400040cbf154000045000801010000000203010000000200;
+      port0_0_tkeep = 64'hFFFFFFFFFFFFFFFF;
+      port0_0_tuser = 48'h000000000062;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 0;
+      #4;
+    
+      // Beat 2
+      port0_0_tdata = 512'h00000000000000000000000000000000000000000000000000000000000037363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a1918171615;
+      port0_0_tkeep = 64'h00000007ffffffff;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 1;
+      #4;
+      
+      // === Packet 20 ===
+      // Beat 1
+      port0_0_tdata = 512'h14131211100000000000091ba000000000635114e20300526843f400080301a8c00101a8c088c501400040cbf154000045000801010000000203010000000200;
+      port0_0_tkeep = 64'hFFFFFFFFFFFFFFFF;
+      port0_0_tuser = 48'h000000000062;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 0;
+      #4;
+    
+      // Beat 2
+      port0_0_tdata = 512'h00000000000000000000000000000000000000000000000000000000000037363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a1918171615;
+      port0_0_tkeep = 64'h00000007ffffffff;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 1;
+      #4;
+      
+      // === Packet 21 ===
+      // Beat 1
+      port0_0_tdata = 512'h14131211100000000000091ba000000000635114e20300526843f400080301a8c00101a8c088c501400040cbf154000045000801010000000203010000000200;
+      port0_0_tkeep = 64'hFFFFFFFFFFFFFFFF;
+      port0_0_tuser = 48'h000000000062;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 0;
+      #4;
+    
+      // Beat 2
+      port0_0_tdata = 512'h00000000000000000000000000000000000000000000000000000000000037363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a1918171615;
+      port0_0_tkeep = 64'h00000007ffffffff;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 1;
+      #4;
+      
+      // === Packet 22 ===
+      // Beat 1
+      port0_0_tdata = 512'h14131211100000000000091ba000000000635114e20300526843f400080301a8c00101a8c088c501400040cbf154000045000801010000000203010000000200;
+      port0_0_tkeep = 64'hFFFFFFFFFFFFFFFF;
+      port0_0_tuser = 48'h000000000062;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 0;
+      #4;
+    
+      // Beat 2
+      port0_0_tdata = 512'h00000000000000000000000000000000000000000000000000000000000037363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a1918171615;
+      port0_0_tkeep = 64'h00000007ffffffff;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 1;
+      #4;
+      
+      // === Packet 23 ===
+      // Beat 1
+      port0_0_tdata = 512'h14131211100000000000091ba000000000635114e20300526843f400080301a8c00101a8c088c501400040cbf154000045000801010000000203010000000200;
+      port0_0_tkeep = 64'hFFFFFFFFFFFFFFFF;
+      port0_0_tuser = 48'h000000000062;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 0;
+      #4;
+    
+      // Beat 2
+      port0_0_tdata = 512'h00000000000000000000000000000000000000000000000000000000000037363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a1918171615;
+      port0_0_tkeep = 64'h00000007ffffffff;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 1;
+      #4;
+      
+      // === Packet 24 ===
+      // Beat 1
+      port0_0_tdata = 512'h14131211100000000000091ba000000000635114e20300526843f400080301a8c00101a8c088c501400040cbf154000045000801010000000203010000000200;
+      port0_0_tkeep = 64'hFFFFFFFFFFFFFFFF;
+      port0_0_tuser = 48'h000000000062;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 0;
+      #4;
+    
+      // Beat 2
+      port0_0_tdata = 512'h00000000000000000000000000000000000000000000000000000000000037363534333231302f2e2d2c2b2a292827262524232221201f1e1d1c1b1a1918171615;
+      port0_0_tkeep = 64'h00000007ffffffff;
+      port0_0_tvalid = 1;
+      port0_0_tlast = 1;
+      #4;
+      
+      port0_0_tvalid = 0;
+      
+      wait(port1_handshake);
+      
+      wait(!port1_0_tvalid);
+      wait(port1_0_tvalid);
+      
+    
+      // Finish after some cycles
+      #100;
+      $finish;
+    end
+    
+endmodule

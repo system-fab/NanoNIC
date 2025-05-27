@@ -1,28 +1,37 @@
 #include <linux/bpf.h>
 #include <linux/if_ether.h>
 #include <arpa/inet.h>
+#include <linux/in.h>
+#include <linux/ip.h>
+#include <linux/ipv6.h>
+#include <stddef.h>
+#include <stdbool.h>
+
+#define BE_ETH_P_IP 8
+#define BE_ETH_P_IPV6 56710
+#define ETH_ALEN	6		/* Octets in one ethernet addr	 */
+
+struct eth_hdr {
+    unsigned char eth_dest[ETH_ALEN];
+    unsigned char eth_source[ETH_ALEN];
+    unsigned short  eth_proto;
+};
 
 #define SEC(NAME) __attribute__((section(NAME), used))
 
 SEC("xdp_drop_IPv4")
 int xdp_prog(struct xdp_md *ctx)
 {
-    //uint64_t start = bpf_ktime_get_ns();
-
-    void *data_end = (void *)(long)ctx->data_end;
     void *data = (void *)(long)ctx->data;
-    struct ethhdr *eth = data;
+    void *data_end = (void *)(long)ctx->data_end;
+    struct eth_hdr *eth = data;
 
-    if (data + sizeof(*eth) > data_end)
+    /* Check if the packet is large enough to contain an Ethernet header */
+    if (data + sizeof(struct eth_hdr) > data_end)
         return XDP_DROP;
 
-    if (eth->h_proto == htons(ETH_P_IP))
+    if (eth->eth_proto == BE_ETH_P_IP)
         return XDP_DROP;
-
-    //uint64_t end = bpf_ktime_get_ns();
-    //uint64_t diff = end - start;
-
-    //bpf_printk("Latency: %llu ns\n", diff);
 
     return XDP_PASS;
 }

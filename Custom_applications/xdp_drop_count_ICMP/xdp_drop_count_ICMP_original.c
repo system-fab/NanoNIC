@@ -21,7 +21,6 @@ struct
 SEC("xdp")
 int xdp_drop_icmp(struct xdp_md *ctx)
 {
-    uint64_t start = bpf_ktime_get_ns();
     void *data_end = (void *)(unsigned long)ctx->data_end;
     void *data = (void *)(unsigned long)ctx->data;
 
@@ -64,11 +63,6 @@ int xdp_drop_icmp(struct xdp_md *ctx)
     {
         return XDP_DROP;
     }
-
-    uint64_t end = bpf_ktime_get_ns();
-    uint64_t diff = end - start;
-
-    bpf_printk("Latency ICMP: %llu ns\n", diff);
 
     return XDP_PASS;
 }

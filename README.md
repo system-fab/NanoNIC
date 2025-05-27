@@ -27,6 +27,11 @@ This project includes the following components:
 3. **eBPF Programs:**
    - A set of eBPF programs for testing the system. Inside the Custom_applications folder you can find the eBPF programs that we used for testing. Plus also a script for compiling every eBPF program with Nanotube and a guide that describes how to compile, execute and test each program before deploying it on the FPGA.
 
+### Bugs fixed
+
+- Nanotube compiler only support a version of AXI4-Stream that comprend also the `tstrb` signal, which is not necessary for OpenNIC. The issue has been communicated to the Nanotube team and they will fix this issue ([Github Issue](https://github.com/Xilinx/nanotube/issues/2)). For now, the problem is solved by the `Nanotube_pipeline_wrapper.v` file, which handles the `tstrb` signal.
+- The HLS script provided by Nanotube does not work with the xdp_drop_all application because it does not support applications that have no output. To solve this issue, follow the instruction in the [Github Issue](https://github.com/Xilinx/nanotube/issues/3).
+
 ### Prerequisites
 
 To build and deploy the NanoNIC system, ensure the following are installed:
@@ -62,7 +67,9 @@ Here is a simple representation of the Nanotube compiler:
 
 ![Nanotube](docs/Nanotube_chain.jpg)
 
-Once the patch is applied, you can follow the instructions in the Nanotube README to build the compiler, download Katran and build the IPs with the HLS synthesis.
+Nanotube is created to translate eBPF programs into a series of C++ files that can be synthesized into hardware using High-Level Synthesis (HLS).
+
+Once the patch is applied, you can follow the instructions in the Nanotube README to build the compiler. Then, look at the Custom_applications folder to find the eBPF programs that we used for testing. Each application has a `compile.sh` script that compiles the eBPF program into HLS C++ files.
 
 To perform the HLS synthesis, run this command inside the Nanotube directory (N is the number of threads you want to use):
 
@@ -91,6 +98,7 @@ Be careful when you try to emulate this project because a lot of things can go w
 - If you have problems with installling Vivado, here is a guide to do it (https://www.reddit.com/r/Xilinx/comments/s7lcgq/comment/ib643pc/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button)
 - When you try to run the **Behavioral Simulation** in Vivado, you may encounter an error stating that files like `bd_7485_lmb_bram_0.mem` or `bd_7485_reg_map_bram_0.mem` are missing. If this happens, simply create an empty file with the same name to allow Vivado to initialize that memory region to zero. Credit: Thanks to **Francesco Maria Tranquillo** for this helpful insight.
 - You may encounter an error saying "Vivado "$RDI_PROG" "$@". The problem is that you may not have enought ram to run the program. You can try to increase the swapfile size or try to run the program in a machine with more ram.
+- Pay attention to how you insert the packet data inside the tdata signal in the Vivado testbench. The data should be inserted in the correct order, otherwise the simulation will fail. There is a python script called `reverse_pairs.py` that can help you with this task. It takes a packet formatted as a string as input and outputs a new string with the data reversed in pairs, which is the expected format for the tdata signal in the Vivado testbench.
 
 ## Limitations
 
@@ -105,7 +113,7 @@ Unfortunately, the current implementation has several limitations that you shoul
 ## Roadmap
 
 - [x] Integrate Nanotube with OpenNIC support and pass the repository tests.
-- [ ] Achieve a working implementation on FPGA.
+- [x] Achieve a working implementation on FPGA.
 - [ ] Test the hardware design in a real-world scenario.
 
 ## Acknowledgment
