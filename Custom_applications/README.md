@@ -54,7 +54,7 @@ To compile an application:
 To perform HLS synthesis, you can use the `scripts/hls_build` command provided by Nanotube. The command should look like this:
 
 ```bash
-scripts/hls_build -j6 --clock 4.0 -- Custom_applications/xdp_drop_IPv4/xdp_drop_IPv4.ebpf2nt.mem2req.lower.inline.platform.ntattr.optreq.converge.pipeline.link_taps.inline_opt.hls/  HLS_build/xdp_drop_IPv4/ --pcap-in /Custom_applications/xdp_drop_IPv4/pcap_test_files/test_xdp_drop_IPv4.pcap.IN --pcap-exp Custom_applications/xdp_drop_IPv4/pcap_test_files/test_xdp_drop_IPv4.pcap.OUT
+scripts/hls_build -j6 --clock 4.0 -p xcu250-figd2104-2L-e -- Custom_applications/xdp_drop_IPv4/xdp_drop_IPv4.ebpf2nt.mem2req.lower.inline.platform.ntattr.optreq.converge.pipeline.link_taps.inline_opt.hls/  HLS_build/xdp_drop_IPv4/ --pcap-in ../../../../../../Custom_applications/xdp_drop_IPv4/pcap_test_files/test_xdp_drop_IPv4.pcap.IN --pcap-exp ../../../../../../Custom_applications/xdp_drop_IPv4/pcap_test_files/test_xdp_drop_IPv4.pcap.OUT
 ```
 
 This command performs CSim and CoSim using the provided pcap files and compare the output with the expected output. If the comparison is successful, it will generate the Vivado IPs in the `HLS_build` directory. You can also specify the target board and other options as needed.
