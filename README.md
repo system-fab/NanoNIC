@@ -2,7 +2,7 @@
 
 ## Project Goal
 
-The **NanoNIC** project integrates **Nanotube**, a compiler for translating eBPF programs into FPGA-friendly hardware descriptions, with **OpenNIC**, an open-source framework for programmable network interface cards. The goal is to enable hardware-accelerated, high-performance eBPF-based packet processing.
+The **NanoNIC** project integrates **Nanotube**, a compiler for translating eBPF programs into FPGA-friendly hardware descriptions, with **OpenNIC**, an open-source framework for programmable network interface cards. The goal is to enable hardware-accelerated, high-performance eBPF-based packet processing even for developers who are not so friendly with the development process of FPGA.
 
 This project provides a proof-of-concept system demonstrating how to:
 
@@ -69,36 +69,133 @@ Here is a simple representation of the Nanotube compiler:
 
 Nanotube is created to translate eBPF programs into a series of C++ files that can be synthesized into hardware using High-Level Synthesis (HLS).
 
-Once the patch is applied, you can follow the instructions in the Nanotube README to build the compiler. Then, look at the Custom_applications folder to find the eBPF programs that we used for testing. Each application has a `compile.sh` script that compiles the eBPF program into HLS C++ files.
+Once the patch is applied, you can follow the instructions in the Nanotube README to build the compiler. The patch file contains the necessary modifications to support the OpenNIC bus interface. The following buses are currently supported:
 
-To perform the HLS synthesis, run this command inside the Nanotube directory (N is the number of threads you want to use):
+- **`sb`**: Simple Bus
+- **`shb`**: SoftHub Bus
+- **`x3rx`**: X3RX Bus (X3522 SmartNICs)
+- **`open_nic`**: OpenNIC Bus
 
-```shell
-scripts/hls_build path_to_your_stages_cc_files/*.hls HLS_build/name_of_your_application -j N -L/usr/lib/x86_64-linux-gnu -L/usr/lib/gcc/x86_64-linux-gnu/9 -v
-```
+Inside the `Custom_applications` directory, you can find more information about how to compile the eBPF programs with Nanotube. The process is quite simple and can be done by running the `compile.sh` script present in each application directory. The script will compile the eBPF program and generate the necessary C++ files for HLS synthesis.
 
-After the HLS synthesis is done, you can find the IPs in the HLS_build directory. You can now move the IPs to the OpenNIC shell directory and start building the FPGA design.
+After the HLS synthesis is done, you can find the IPs in the output directory. You can now move the IPs to the OpenNIC shell directory and start building the FPGA design.
 
 ### [OpenNIC-shell](open-nic-shell/README.md)
 
-The OpenNIC shell is a framework that allows the user to create a custom NIC with a custom pipeline. For more information please visit the OpenNIC repository.
+The OpenNIC shell is a framework that allows developers to create a custom NIC with a custom pipeline. For more information please visit the OpenNIC repository.
 
-In order to build the OpenNIC shell with our custom IP inside, some modifications are needed. First of all, execute the `synth_open-nic_project.sh` file and generate a Vivado project of the OpenNIC shell. Then, press Tools -> Settings -> IP -> Repository and add the path to the nanotube/HLS\*build/application directory. You should see some new IPs added to the project. After that, you can create a new block design and add all IP by pressing the "+" button and selecting all the IPs that are called stage\_{number}. Inside the .hls build directory, you will find a `vitis_opts.ini` file that contains all the necessary links that you need to reproduce inside the Block design. If a port is not connected to anything, right click on it and press "Make it external". At this point you should connect all the clock and reset ports together and the result should be a block design that looks like this:
+In order to build the OpenNIC shell with our custom IP inside, some modifications are needed. First of all, execute the `synth_open-nic_project.sh` file and generate a Vivado project of the OpenNIC shell. Then, press Tools -> Settings -> IP -> Repository and add the path to the `nanotube/HLS_build/application` directory. You should see some new IPs added to the project. After that, you can create a new block design and add all IP by pressing the "+" button and selecting all the IPs that are called `stage_{number}`. Inside the output directory created by Nanotube with the C++ stage files, you will also find a `vitis_opts.ini` file that contains all the necessary links that you need to reproduce inside the Block design. Here is an example of how the `vitis_opts.ini` file looks like:
+
+```
+[connectivity]
+nk=stage_0:1:stage_0
+nk=stage_1:1:stage_1
+nk=stage_2:1:stage_2
+nk=stage_3:1:stage_3
+nk=stage_4:1:stage_4
+nk=stage_5:1:stage_5
+nk=stage_6:1:stage_6
+sc=mae2p_kernel0:stage_0.port0
+sc=stage_0.port1:stage_1.port0:16
+sc=stage_1.port1:stage_2.port0:16
+sc=stage_2.port1:stage_3.port0:16
+sc=stage_3.port1:stage_4.port0:16
+sc=stage_4.port1:stage_5.port0:16
+sc=stage_5.port1:stage_6.port0:16
+sc=stage_6.port1:p2vnr_kernel0
+sc=stage_0.port2:stage_1.port3:16
+sc=stage_1.port2:stage_2.port3:16
+sc=stage_2.port2:stage_3.port3:16
+sc=stage_3.port2:stage_4.port3:16
+sc=stage_4.port2:stage_5.port3:16
+sc=stage_5.port2:stage_6.port2:16
+```
+
+If a port is not connected to other ports of the pipeline (e.g. mae2p_kernel0 or p2vnr_kernel0), right click on it and press "Make it external". At this point you should connect all the clock and reset ports together and the result should be a block design that looks like this:
 
 ![Block Design](docs/Nanotube_pipeline.png)
 
-Now, you can let Vivado create the wrapper for you. This file is essential to connect the OpenNIC shell with the custom pipeline. Since the IPs generated by Nanotube include also a tstrb signal that is useless in the OpenNIC context, see how you can fix it by looking at the file named `Nanotube_pipeline_wrapper.v`. After that, you can connect the pipeline to the OpenNIC shell by changing the `p2p_250mhz.sv` file inside Vivado. Replace line 282 where the rx_ppl_inst is connected to an axi_stream_pipeline and use the custom pipeline that you created. Now, you need to set as global the file named `open_nic_shell_macros.vh`. The next step is to generate the bitstream by pressing the "Generate Bitstream" button.
+Now, you can let Vivado create the wrapper for you. This file is essential to connect the OpenNIC shell with the custom pipeline. Since the IPs generated by Nanotube include also a `tstrb` signal that is useless in the OpenNIC context, you can fix it by looking at the example file named `Nanotube_pipeline_wrapper.v`. After that, you can connect the pipeline to the OpenNIC shell by changing the `p2p_250mhz.sv` file inside Vivado. Replace line 282 where the rx_ppl_inst is connected to an axi_stream_pipeline and use the custom pipeline that you created. The file should look like this:
+
+```verilog
+axi_stream_pipeline tx_ppl_inst (
+   .s_axis_tvalid (s_axis_qdma_h2c_tvalid[i]),
+   .s_axis_tdata  (s_axis_qdma_h2c_tdata[`getvec(512, i)]),
+   .s_axis_tkeep  (s_axis_qdma_h2c_tkeep[`getvec(64, i)]),
+   .s_axis_tlast  (s_axis_qdma_h2c_tlast[i]),
+   .s_axis_tuser  (axis_qdma_h2c_tuser),
+   .s_axis_tready (s_axis_qdma_h2c_tready[i]),
+
+   .m_axis_tvalid (m_axis_adap_tx_250mhz_tvalid[i]),
+   .m_axis_tdata  (m_axis_adap_tx_250mhz_tdata[`getvec(512, i)]),
+   .m_axis_tkeep  (m_axis_adap_tx_250mhz_tkeep[`getvec(64, i)]),
+   .m_axis_tlast  (m_axis_adap_tx_250mhz_tlast[i]),
+   .m_axis_tuser  (axis_adap_tx_250mhz_tuser),
+   .m_axis_tready (m_axis_adap_tx_250mhz_tready[i]),
+
+   .aclk          (axis_aclk),
+   .aresetn       (axil_aresetn)
+);
+
+Nanotube_pipeline_wrapper rx_ppl_inst (
+   .ap_clk_0       (axis_aclk),
+   .ap_rst_n_0     (axil_aresetn),
+
+   .port0_0_tvalid (s_axis_adap_rx_250mhz_tvalid[i]),
+   .port0_0_tdata  (s_axis_adap_rx_250mhz_tdata[`getvec(512, i)]),
+   .port0_0_tkeep  (s_axis_adap_rx_250mhz_tkeep[`getvec(64, i)]),
+   .port0_0_tlast  (s_axis_adap_rx_250mhz_tlast[i]),
+   .port0_0_tuser  (axis_adap_rx_250mhz_tuser),
+   .port0_0_tready (s_axis_adap_rx_250mhz_tready[i]),
+
+   .port1_0_tvalid (m_axis_qdma_c2h_tvalid[i]),
+   .port1_0_tdata  (m_axis_qdma_c2h_tdata[`getvec(512, i)]),
+   .port1_0_tkeep  (m_axis_qdma_c2h_tkeep[`getvec(64, i)]),
+   .port1_0_tlast  (m_axis_qdma_c2h_tlast[i]),
+   .port1_0_tuser  (axis_qdma_c2h_tuser),
+   .port1_0_tready (m_axis_qdma_c2h_tready[i])
+);
+```
+
+Now, you need to set as global the file named `open_nic_shell_macros.vh` and add the following lines at the end of the file:
+
+```verilog
+`define __au250__
+`define __synthesis__
+`undef __au55c__
+`undef __au50__
+`undef __au55n__
+`undef __au200__
+`undef __au280__
+`undef __au45n__
+```
+
+Be sure to use define for synthesis and the correct target board. In this case the setup is configured for an Alveo U250.
+
+The next step is to generate the bitstream by pressing the "Generate Bitstream" button. If you want to test the design instead, you can find more information in the `Custom_applications` directory.
+
+## Testing Setup
+
+To test the NanoNIC system, we used the following setup:
+
+![Testing Setup](docs/Testing_setup.jpg)
+
+The U55C board was used to run the OpenNIC shell with DPDK support to generate traffic. The U250 board was used to run the OpenNIC shell with the custom pipeline generated by Nanotube. The two boards were connected via a 100G QSFP cable.
+
+Inside the `scripts` folder, you can find a script named `setup_and_run_DPDK.sh`, which was used to automate the configuration and execution of DPDK on the U55C side. The parameters used within this script may vary depending on the bitstream, setup, and board used.
+
+For an unknown reason, DPDK appears to work only with bitstreams that are generated with two CMAC ports. While the `lspci -v` command provides most of the information required for the script, some values—such as `0x8` and `0x00400008`—are derived from the configuration used by the `open-nic-driver`. It is recommended to insert the `open-nic-driver` kernel module, read the necessary values using a tool like `pcimem`, and manually copy them into your script.
+
+Another unusual behavior observed during testing was that DPDK functioned correctly only after the `open-nic-driver` was inserted and then removed. Since this behavior is not typical for DPDK and may be setup-specific, it was not included in the configuration script.
 
 ## Warnings and Errors
 
 Be careful when you try to emulate this project because a lot of things can go wrong. Here are some of the errors we found during the development:
 
 - Sometimes in the Nanotube README file, the `nanotube-llvm` directory is missplelled. Make sure to correct it.
-- There's also need to install python3-distutils package in order to make scons work.
+- In order to make scons work, you'll need to install python3-distutils package.
 - If you have problems with installling Vivado, here is a guide to do it (https://www.reddit.com/r/Xilinx/comments/s7lcgq/comment/ib643pc/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button)
-- When you try to run the **Behavioral Simulation** in Vivado, you may encounter an error stating that files like `bd_7485_lmb_bram_0.mem` or `bd_7485_reg_map_bram_0.mem` are missing. If this happens, simply create an empty file with the same name to allow Vivado to initialize that memory region to zero. Credit: Thanks to **Francesco Maria Tranquillo** for this helpful insight.
 - You may encounter an error saying "Vivado "$RDI_PROG" "$@". The problem is that you may not have enought ram to run the program. You can try to increase the swapfile size or try to run the program in a machine with more ram.
-- Pay attention to how you insert the packet data inside the tdata signal in the Vivado testbench. The data should be inserted in the correct order, otherwise the simulation will fail. There is a python script called `reverse_pairs.py` that can help you with this task. It takes a packet formatted as a string as input and outputs a new string with the data reversed in pairs, which is the expected format for the tdata signal in the Vivado testbench.
 
 ## Limitations
 
@@ -108,7 +205,7 @@ Unfortunately, the current implementation has several limitations that you shoul
 
 2. The Nanotube compiler currently supports only a subset of eBPF features (e.g. Per-cpu maps are not supported)
 
-3. Big pipelines like the one of Katran fails to meet the timing constraints in the OpenNIC shell. As of today, we are still working on this issue.
+3. Big pipelines like the one of Katran (example used inside the Nanotube GitHub repository) fails to meet the timing constraints in the OpenNIC shell. As of today, we are still working on this issue.
 
 ## Roadmap
 
