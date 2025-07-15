@@ -31,38 +31,32 @@ int xdp_drop_icmp(struct xdp_md *ctx)
     if (eth->h_proto != __builtin_bswap16(ETH_P_IP))
         return XDP_PASS;
 
-    struct iphdr *ip = data + sizeof(*eth);
+    struct iphdr *ip = (void *)eth + sizeof(*eth);
     if ((void *)ip + sizeof(*ip) > data_end)
         return XDP_DROP;
 
     if (ip->protocol != IPPROTO_ICMP)
         return XDP_PASS;
 
-    struct icmphdr *icmp = (void *)ip + sizeof(*ip);
-
-    if ((void *)icmp + sizeof(*icmp) > data_end)
+    void *icmp_ptr = (void *)ip + sizeof(*ip);
+    if (icmp_ptr + sizeof(struct icmphdr) > data_end)
         return XDP_DROP;
+
+    struct icmphdr *icmp = icmp_ptr;
 
     uint32_t src_ip = ip->saddr;
-
+    uint64_t init_val = 1;
     uint64_t *count = bpf_map_lookup_elem(&icmp_count_map, &src_ip);
 
-    if (count)
-    {
-        __sync_fetch_and_add(count, 1);
-    }
-    else
-    {
-        // If NULL, add to icmp_count_map
-        bpf_map_update_elem(&icmp_count_map, &src_ip, &(uint64_t){1}, BPF_ANY);
+    if (!count) {
+        bpf_map_update_elem(&icmp_count_map, &src_ip, &init_val, BPF_ANY);
+        return XDP_PASS;
     }
 
-    count = bpf_map_lookup_elem(&icmp_count_map, &src_ip);
+    __sync_fetch_and_add(count, 1);
 
-    if (count && *count > 20)
-    {
+    if (*count > 20)
         return XDP_DROP;
-    }
 
     return XDP_PASS;
 }
