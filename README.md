@@ -18,11 +18,11 @@ This project includes the following components:
 
 1. **Bus Implementation:**
 
-   - Nanotube doesn't official support the OpenNIC bus interface so we added it to the official repository.
+   - Nanotube now officially supports the OpenNIC bus interface thanks to the recent contributions that were previously part of this project.
 
 2. **Wrapper Implementation:**
 
-   - The wrapper connects **OpenNIC** and **Nanotube**-generated IPs.
+   - The wrapper connects **OpenNIC** and **Nanotube**-generated pipeline of IPs.
 
 3. **eBPF Programs:**
    - A set of eBPF programs for testing the system. Inside the Custom_applications folder you can find the eBPF programs that we used for testing. Plus also a script for compiling every eBPF program with Nanotube and a guide that describes how to compile, execute and test each program before deploying it on the FPGA.
@@ -47,11 +47,7 @@ Both Nanotube and the OpenNIC shell are linked as submodules to this repository 
 git submodule update --init --recursive
 ```
 
-Now, you can apply the patch created for Nanotube repository. To do so, run the following command:
-
-```shell
-patch -d ./nanotube -p1 < nanotube.patch
-```
+Nanotube repository is ready to be used and you can follow the instructions in the Nanotube README file to build the compiler.
 
 For the OpenNIC shell, you need to execute the file named `synth_open-nic_project.sh` . This will create the necessary files for the Vivado project. Before,
 
@@ -73,10 +69,11 @@ Once the patch is applied, you can follow the instructions in the Nanotube READM
 
 - **`sb`**: Simple Bus
 - **`shb`**: SoftHub Bus
-- **`x3rx`**: X3RX Bus (X3522 SmartNICs)
+- **`x3rx`**: X3RX Bus
 - **`open_nic`**: OpenNIC Bus
+- **`x3tx`** : X3TX Bus
 
-Inside the `Custom_applications` directory, you can find more information about how to compile the eBPF programs with Nanotube. The process is quite simple and can be done by running the `compile.sh` script present in each application directory. The script will compile the eBPF program and generate the necessary C++ files for HLS synthesis.
+Inside the `Custom_applications` directory, you can find more information about how to compile the eBPF programs with Nanotube. The process is quite simple and can be done by running the `nanotube_steps.sh` script present in each application directory, taken from the nanotube repository. The script will compile the eBPF program and generate the necessary C++ files for HLS synthesis.
 
 After the HLS synthesis is done, you can find the IPs in the output directory. You can now move the IPs to the OpenNIC shell directory and start building the FPGA design.
 
@@ -184,9 +181,19 @@ The U55C board was used to run the OpenNIC shell with DPDK support to generate t
 
 Inside the `scripts` folder, you can find a script named `setup_and_run_DPDK.sh`, which was used to automate the configuration and execution of DPDK on the U55C side. The parameters used within this script may vary depending on the bitstream, setup, and board used.
 
-For an unknown reason, DPDK appears to work only with bitstreams that are generated with two CMAC ports. While the `lspci -v` command provides most of the information required for the script, some values—such as `0x8` and `0x00400008`—are derived from the configuration used by the `open-nic-driver`. It is recommended to insert the `open-nic-driver` kernel module, read the necessary values using a tool like `pcimem`, and manually copy them into your script.
+For an unknown reason, DPDK appears to work only with bitstreams that are generated with two CMAC ports. While the `lspci -v` command provides most of the information required for the script, some values, such as `0x8` and `0x00400008`, are derived from the configuration used by the `open-nic-driver`. It is recommended to insert the `open-nic-driver` kernel module, read the necessary values using a tool like `pcimem`, and manually copy them into your script.
 
 Another unusual behavior observed during testing was that DPDK functioned correctly only after the `open-nic-driver` was inserted and then removed. Since this behavior is not typical for DPDK and may be setup-specific, it was not included in the configuration script.
+
+## Scripts for support
+
+Inside the `scripts` folder, you can find some useful scripts that were used during the development of this project:
+
+- `get_connections.py` : A Python script that extracts the connections from the `vitis_opts.ini` file and generates a text file with the connections that can be copy and pasted inside the tcl console in Vivado to automate the process of creating the connections inside the Block Design.
+- `launch_hls_build.sh` : A bash script that launches the HLS synthesis for all the applications present in the `Custom_applications` folder. This script is useful to automate the process of synthesizing all the applications after you compiled them with Nanotube.
+- `report_hls_synth`: A slightly modified version of the `report_hls_synth` script present in the Nanotube repository. This script generates a report of the HLS synthesis for the applications once the synthesis is done and contains also information about the latency of each stage of the pipeline.
+- `reverse_pairs.py`: A Python script that reverse the packet informations to make it easier to develop the testbench for Vivado simulation.
+- `setup_and_run_DPDK.sh` : A bash script that automates the configuration and execution of DPDK on the U55C board. The script may require modifications depending on the bitstream, setup, and board used.
 
 ## Warnings and Errors
 
@@ -195,7 +202,7 @@ Be careful when you try to emulate this project because a lot of things can go w
 - Sometimes in the Nanotube README file, the `nanotube-llvm` directory is missplelled. Make sure to correct it.
 - In order to make scons work, you'll need to install python3-distutils package.
 - If you have problems with installling Vivado, here is a guide to do it (https://www.reddit.com/r/Xilinx/comments/s7lcgq/comment/ib643pc/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button)
-- You may encounter an error saying "Vivado "$RDI_PROG" "$@". The problem is that you may not have enought ram to run the program. You can try to increase the swapfile size or try to run the program in a machine with more ram.
+- You may encounter an error saying `Vivado "$RDI_PROG" "$@`. The problem is that you may not have enought ram to run the program. You can try to increase the swapfile size or try to run the program in a machine with more ram.
 
 ## Limitations
 
@@ -211,7 +218,7 @@ Unfortunately, the current implementation has several limitations that you shoul
 
 - [x] Integrate Nanotube with OpenNIC support and pass the repository tests.
 - [x] Achieve a working implementation on FPGA.
-- [ ] Test the hardware design in a real-world scenario.
+- [x] Test the hardware design in a real-world scenario.
 
 ## Acknowledgment
 

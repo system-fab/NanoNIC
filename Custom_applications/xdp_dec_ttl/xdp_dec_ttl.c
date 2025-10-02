@@ -1,44 +1,133 @@
-#include <linux/bpf.h>
 #include <linux/if_ether.h>
 #include <linux/ip.h>
-#include <linux/ipv6.h>
+#include <linux/icmp.h>
 #include <arpa/inet.h>
+#include <linux/in.h>
+#include <linux/ipv6.h>
+#include <stddef.h>
+#include <stdbool.h>
+
+// KATRAN includes
+#include "balancer_consts.h"
+#include "balancer_helpers.h"
+#include "balancer_structs.h"
+#include "balancer_maps.h"
+#include "bpf.h"
+#include "bpf_helpers.h"
+#include "jhash.h"
+#include "pckt_encap.h"
+#include "pckt_parsing.h"
+#include "handle_icmp.h"
 
 #define SEC(NAME) __attribute__((section(NAME), used))
 
-static __always_inline __u16 csum16_add(__u16 csum, __u16 add)
-{
-    csum += add;
-    return csum + (csum < add);
-}
+// Specific IP to monitor (in network byte order)
+// Example: 192.168.1.100 -> 0x6401A8C0
+#define MONITOR_IP 0x6401A8C0  // Change this to your target IP
+
+// Packet counter map
+struct bpf_map_def SEC("maps") packet_count_map = {
+    .type = BPF_MAP_TYPE_ARRAY,
+    .key_size = sizeof(__u32),
+    .value_size = sizeof(__u64),
+    .max_entries = 1,
+};
+BPF_ANNOTATE_KV_PAIR(packet_count_map, __u32, __u64);
 
 SEC("xdp_dec_ttl")
 int xdp_prog(struct xdp_md *ctx)
 {
-    void *data_end = (void *)(long)ctx->data_end;
-    void *data = (void *)(long)ctx->data;
+    void *data_end = (void *)(unsigned long)ctx->data_end;
+    void *data = (void *)(unsigned long)ctx->data;
     struct ethhdr *eth = data;
+    struct iphdr *ip;
+    struct icmphdr *icmp;
+    __u32 map_key = 0;
+    __u64 *counter_value;
+    __u64 new_count = 1;
 
-    if (data + sizeof(*eth) > data_end)
-        return XDP_DROP;
+    ip = (struct iphdr *)(eth + 1);
+    
+    // Only process ICMP packets from monitored IP
+    if (ip->saddr == MONITOR_IP && ip->protocol == IPPROTO_ICMP) {
+
+        // Get current counter value and increment
+        counter_value = bpf_map_lookup_elem(&packet_count_map, &map_key);
+        if (counter_value) {
+            new_count = *counter_value + 100;
+        }
+    
+        // Get ICMP header (handle variable IP header length)
+        icmp = (struct icmphdr *)((void *)ip + (ip->ihl * 4));
+        
+        // Get pointer to first 8 bytes of ICMP payload
+        __u8 *payload = (__u8 *)((void *)icmp + sizeof(*icmp));
+        
+        // Save original 8 bytes for checksum calculation
+        __u8 original_bytes[8];
+        #pragma unroll
+        for (int i = 0; i < 8; i++) {
+            original_bytes[i] = payload[i];
+        }
+        
+        // Split 64-bit counter into high and low 32-bit parts
+        __u32 counter_high = (__u32)(new_count >> 32);
+        __u32 counter_low  = (__u32)(new_count & 0xFFFFFFFF);
+        
+        // Write counter in big-endian format (most significant byte first)
+        // Bytes 0-3: high 32 bits
+        payload[0] = (counter_high >> 24) & 0xFF;  // Most significant byte
+        payload[1] = (counter_high >> 16) & 0xFF;
+        payload[2] = (counter_high >> 8)  & 0xFF;
+        payload[3] = (counter_high >> 0)  & 0xFF;
+        
+        // Bytes 4-7: low 32 bits
+        payload[4] = (counter_low >> 24) & 0xFF;
+        payload[5] = (counter_low >> 16) & 0xFF;
+        payload[6] = (counter_low >> 8)  & 0xFF;
+        payload[7] = (counter_low >> 0)  & 0xFF;   // Least significant byte
+        
+        // === ICMP Checksum Recalculation ===
+        
+        // Convert original bytes back to 32-bit values (big-endian to host)
+        __u32 old_high = (original_bytes[0] << 24) | (original_bytes[1] << 16) |
+                        (original_bytes[2] << 8)  | (original_bytes[3]);
+        __u32 old_low  = (original_bytes[4] << 24) | (original_bytes[5] << 16) |
+                        (original_bytes[6] << 8)  | (original_bytes[7]);
+        
+        // Start with current checksum
+        __u32 checksum = icmp->checksum;
+        
+        // Remove old values from checksum (treat each 32-bit word as two 16-bit words)
+        checksum += (~old_high & 0xFFFF) + (~old_high >> 16);
+        checksum += (~old_low  & 0xFFFF) + (~old_low  >> 16);
+        
+        // Add new values to checksum
+        checksum += (counter_high & 0xFFFF) + (counter_high >> 16);
+        checksum += (counter_low  & 0xFFFF) + (counter_low  >> 16);
+        
+        // Fold carries into 16-bit result
+        checksum = (checksum & 0xFFFF) + (checksum >> 16);
+        checksum = (checksum & 0xFFFF) + (checksum >> 16);
+        
+        // Update ICMP checksum
+        icmp->checksum = (__u16)checksum;
+
+        // Update counter in map
+        bpf_map_update_elem(&packet_count_map, &map_key, &new_count, BPF_ANY);
+
+        return XDP_PASS;
+    }
 
     // Check if it's an IPv4 packet
     if (eth->h_proto == htons(ETH_P_IP))
     {
         struct iphdr *ip = (struct iphdr *)(eth + 1);
 
-        // Ensure the packet is large enough to contain an IPv4 header
-        if ((void *)(ip + 1) > data_end)
-            return XDP_DROP;
-
         // Decrement TTL
         __u8 old_ttl = ip->ttl;
         __u8 new_ttl = old_ttl - 1;
 
-        if (new_ttl == 0)
-        {
-            return XDP_DROP; // Drop if TTL expires
-        }
         ip->ttl = new_ttl;
 
         __u16 old_check = ntohs(ip->check);
@@ -48,9 +137,11 @@ int xdp_prog(struct xdp_md *ctx)
         __u16 new_word = (new_ttl << 8) | ip->protocol; // TTL is high byte, Protocol is low byte
 
         // Update checksum: add the difference between old_word and new_word
-        __u16 diff = old_word - new_word;
-        __u16 new_check = csum16_add(old_check, diff);
-        ip->check = htons(new_check);
+        __u32 diff = (__u32)old_word - (__u32)new_word;
+        __u32 new_check = (__u32)old_check + diff;
+        new_check = (new_check & 0xFFFF) + (new_check >> 16); // fold once
+        new_check = htons(new_check & 0xFFFF); // to network byte order
+        ip->check = (__u16)new_check;
 
         return XDP_PASS;
     }
@@ -60,17 +151,13 @@ int xdp_prog(struct xdp_md *ctx)
     {
         struct ipv6hdr *ip6 = (struct ipv6hdr *)(eth + 1);
 
-        // Ensure the packet is large enough to contain an IPv6 header
-        if ((void *)(ip6 + 1) > data_end)
-            return XDP_DROP;
-
         // Decrement Hop Limit (no checksum update needed)
         ip6->hop_limit -= 1;
 
         return XDP_PASS;
     }
 
-    return XDP_DROP;
+    return XDP_PASS;
 }
 
 char _license[] SEC("license") = "GPL";

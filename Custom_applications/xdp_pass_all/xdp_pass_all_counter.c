@@ -19,11 +19,8 @@
 #include "pckt_parsing.h"
 #include "handle_icmp.h"
 
-#define SEC(NAME) __attribute__((section(NAME), used))
-
 // Specific IP to monitor (in network byte order)
-// Example: 192.168.1.100 -> 0x6401A8C0
-#define MONITOR_IP 0x6401A8C0  // Change this to your target IP
+#define MONITOR_IP 0x6401A8C0  // 192.168.1.100
 
 // Packet counter map
 struct bpf_map_def SEC("maps") packet_count_map = {
@@ -34,8 +31,8 @@ struct bpf_map_def SEC("maps") packet_count_map = {
 };
 BPF_ANNOTATE_KV_PAIR(packet_count_map, __u32, __u64);
 
-SEC("xdp_drop_IPv4")
-int xdp_drop_IPv4(struct xdp_md *ctx)
+SEC("xdp")
+int xdp_pass_all_counter(struct xdp_md *ctx)
 {
     void *data_end = (void *)(unsigned long)ctx->data_end;
     void *data = (void *)(unsigned long)ctx->data;
@@ -115,13 +112,8 @@ int xdp_drop_IPv4(struct xdp_md *ctx)
 
         // Update counter in map
         bpf_map_update_elem(&packet_count_map, &map_key, &new_count, BPF_ANY);
-
-        return XDP_PASS;
     }
-
-    if (eth->h_proto == htons(ETH_P_IP))
-        return XDP_DROP;
-
+    
     return XDP_PASS;
 }
 

@@ -13,7 +13,7 @@ NT_BUILD_DIR=../../build
 NT_OPT=${NT_BUILD_DIR}/nanotube_opt
 NT_BE=${NT_BUILD_DIR}/nanotube_back_end
 LOCATE_TOOL=../../scripts/locate_tool
-APPLICATION=./xdp_drop_count_ICMP_nanotube.c
+APPLICATION=./xdp_swap_mac.c
 KATRAN=../../external/katran
 
 expect() {
@@ -37,17 +37,16 @@ INFILE="xdp_application.O3.bc"
 NAME_BUS="open_nic"
 
 # Build Katran packet kernel
-$CLANG  -O2 \
-  -I $KATRAN/katran/lib/linux_includes \
-  -I $KATRAN/katran/lib/bpf \
-  -Wno-unused-value -Wno-pointer-sign \
-  -Wno-compare-distinct-pointer-types \
-  -fno-vectorize -fno-slp-vectorize \
-  -fno-builtin-bswap64 \
-  -fno-builtin-bcmp -fno-builtin-memcmp -fno-builtin-memcpy -fno-builtin-memmove \
-  -D NANOTUBE_SIMPLE \
-  $APPLICATION \
-  -c -emit-llvm -o $INFILE
+$CLANG  -O2 -I $KATRAN/katran/lib/linux_includes \
+            -I $KATRAN/katran/lib/bpf \
+            -Wno-unused-value -Wno-pointer-sign \
+            -Wno-compare-distinct-pointer-types \
+            -fno-vectorize -fno-slp-vectorize \
+            -fno-builtin-bswap64 \
+            -D NANOTUBE_SIMPLE \
+            $APPLICATION \
+            -c -emit-llvm \
+            -o $INFILE
 
 # Front-end: Translate from EBPF to the high-level Nanotube interface
 FEFILE=${INFILE/.bc/.nt.bc}

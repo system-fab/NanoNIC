@@ -14,7 +14,7 @@ Each application folder is structured as follows:
 │   |   └── pipeline_tb.v
 │   ├── xdp_application.c
 │   ├── application.c
-│   └── compile.sh
+│   └── nanotube_steps.sh
 ```
 
 More support files can be present, depending on the application requirements.
@@ -22,7 +22,7 @@ More support files can be present, depending on the application requirements.
 ## File Descriptions
 
 - **`application.c`**: Contains the source code for the application.
-- **`compile.sh`**: Contains the commands to compile the application. You can also specify the name of the bus that the application will use.
+- **`nanotube_steps.sh`**: Contains the commands to compile the application. You can also specify the name of the bus that the application will use.
 - **`pcap_test_files/pcap.IN`**: Contains the input packets for the eBPF application compiled with Nanotube.
 - **`pcap_test_files/pcap.OUT`**: Contains the expected output packets for the eBPF application compiled with Nanotube.
 - **`Vivado_testbench/pipeline_tb.v`**: Contains the testbench for the application, used to verify the functionality of the pipeline in Vivado.
@@ -36,7 +36,7 @@ To compile an application, after you have cloned and built the Nanotube project,
 3. Run the following command:
 
    ```bash
-   ./compile.sh
+   ./nanotube_steps.sh
    ```
 
 4. Some applications may require the Katran library. Follow the instructions in the README file present in the Nanotube repository to download and patch Katran prior to compiling the application.
@@ -45,14 +45,20 @@ To compile an application, after you have cloned and built the Nanotube project,
 To perform HLS synthesis, you can use the `scripts/hls_build` command provided by Nanotube. The command should look like this:
 
 ```bash
-scripts/hls_build -j6 --clock 4.0 -p xcu250-figd2104-2L-e -- Custom_applications/xdp_drop_IPv4/xdp_drop_IPv4.ebpf2nt.mem2req.lower.inline.platform.ntattr.optreq.converge.pipeline.link_taps.inline_opt.hls/  HLS_build/xdp_drop_IPv4/
+scripts/hls_build -j6 --clock 4.0 -p xcu250-figd2104-2L-e -- Custom_applications/xdp_drop_IPv4/xdp_application.O3.nt.req.lower.inline.platform.optreq.converge.pipeline.link_taps.inline_opt.hls/  HLS_build/xdp_drop_IPv4/
 ```
 
 This command generates the Vivado IPs in the `HLS_build` directory with a clock target of 250 MHz and for the Alveo U250 board. You can change options as needed.
 
+In alternative, after you compiled each application, you can launch the script `scripts/launch_hls_build.sh` to launch the HLS synthesis for all the Custom applications. The command should look like this:
+
+```bash
+./scripts/launch_hls_build.sh
+```
+
 ### Notes
 
-- Ensure the **bus name** and **application name** are correctly specified in the `compile.sh` file.
+- Ensure the **bus name** and **application name** are correctly specified in the `nanotube_steps.sh` file.
 - If you encounter any issues during the synthesis and simulation phase, check the stage log files inside the output directory to better understand the issue. Keep in mind that you can also modify the c++ initial files to print some debugging information inside the log files.
 
 # Simulating and Testing the Application
